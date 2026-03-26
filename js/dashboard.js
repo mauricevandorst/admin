@@ -1,13 +1,28 @@
 // Dashboard management
 async function loadDashboard() {
     try {
-        // Fetch all data in parallel
-        const [customers, invoices, payments, subscriptions] = await Promise.all([
+        // Fetch all data in parallel - betalingen zijn nu onderdeel van facturen
+        const [customers, invoices, subscriptions] = await Promise.all([
             getAll('customers'),
             getAll('invoices'),
-            getAll('payments'),
             getAll('subscriptions')
         ]);
+
+        // Extract payments from invoices
+        const payments = [];
+        if (invoices && invoices.length > 0) {
+            invoices.forEach(invoice => {
+                if (invoice.payments && invoice.payments.length > 0) {
+                    invoice.payments.forEach(payment => {
+                        payments.push({
+                            ...payment,
+                            invoiceId: invoice.id,
+                            invoiceNumber: invoice.invoiceNumber
+                        });
+                    });
+                }
+            });
+        }
 
         // Calculate statistics
         const stats = calculateStats(customers, invoices, payments, subscriptions);
@@ -25,16 +40,19 @@ function calculateStats(customers, invoices, payments, subscriptions) {
     // Customer stats
     const totalCustomers = customers?.length || 0;
 
-    // Invoice stats with payment calculations (same logic as invoice list)
+    // Invoice stats with payment calculations
     const totalInvoices = invoices?.length || 0;
     const safeInvoices = invoices || [];
     const safePayments = payments || [];
-    const paymentsByInvoice = safePayments.reduce((map, payment) => {
-        if (!payment.invoiceNumber) return map;
-        const currentAmount = map.get(payment.invoiceNumber) || 0;
-        map.set(payment.invoiceNumber, currentAmount + (payment.amount || 0));
-        return map;
-    }, new Map());
+
+    // Build a map of total paid per invoice number from payments within invoices
+    const paymentsByInvoice = new Map();
+    safeInvoices.forEach(invoice => {
+        if (invoice.payments && invoice.payments.length > 0) {
+            const totalPaid = invoice.payments.reduce((sum, p) => sum + (p.amount || 0), 0);
+            paymentsByInvoice.set(invoice.invoiceNumber, totalPaid);
+        }
+    });
 
     let paidInvoices = 0;
     let partiallyPaidInvoices = 0;
@@ -55,28 +73,33 @@ function calculateStats(customers, invoices, payments, subscriptions) {
         totalPaidFromPayments += Math.min(paidForInvoice, invoiceTotal);
         pendingAmount += remainingForInvoice;
 
+        // Determine actual status based on payments
+        let actualStatus = invoice.status;
         if (paidForInvoice >= invoiceTotal && invoiceTotal > 0) {
+            actualStatus = 'paid';
+        } else if (paidForInvoice > 0) {
+            actualStatus = 'partially_paid';
+        } else if (isOverdue) {
+            actualStatus = 'overdue';
+        } else {
+            actualStatus = 'pending';
+        }
+
+        // Count based on actual calculated status
+        if (actualStatus === 'paid') {
             paidInvoices += 1;
-            return;
-        }
-
-        if (paidForInvoice > 0) {
+        } else if (actualStatus === 'partially_paid') {
             partiallyPaidInvoices += 1;
-            return;
-        }
-
-        if (isOverdue) {
+        } else if (actualStatus === 'overdue') {
             overdueInvoices += 1;
-            return;
+        } else {
+            pendingInvoices += 1;
         }
-
-        pendingInvoices += 1;
     });
 
     // Payment stats
     const totalPayments = safePayments.length || 0;
-    const totalPaidAmount = totalPaidFromPayments;
-    
+
     // Subscription stats
     const totalSubscriptions = subscriptions?.length || 0;
     const activeSubscriptions = subscriptions?.filter(s => s.status === 'active').length || 0;
@@ -87,10 +110,10 @@ function calculateStats(customers, invoices, payments, subscriptions) {
         const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
         return endDate <= thirtyDaysFromNow && endDate >= now;
     }).length || 0;
-    
+
     const monthlyRecurringRevenue = subscriptions?.filter(s => s.status === 'active')
         .reduce((sum, s) => sum + (s.price || 0), 0) || 0;
-    
+
     return {
         totalCustomers,
         totalInvoices,
@@ -102,7 +125,6 @@ function calculateStats(customers, invoices, payments, subscriptions) {
         paidAmount: totalPaidFromPayments,
         pendingAmount,
         totalPayments,
-        totalPaidAmount,
         totalSubscriptions,
         activeSubscriptions,
         cancelledSubscriptions,
@@ -502,7 +524,7 @@ function renderRecentPayments(payments) {
     }
 
     const recent = [...payments]
-        .sort((a, b) => new Date(b.paymentDate) - new Date(a.paymentDate))
+        .sort((a, b) => new Date(b.date) - new Date(a.date))
         .slice(0, 5);
 
     return `
@@ -522,16 +544,16 @@ function renderRecentPayments(payments) {
                 ${recent.map(payment => `
                     <div class="flex items-center justify-between p-4 hover:bg-gray-50 rounded-xl transition-all hover-lift">
                         <div class="flex-1">
-                            <p class="font-semibold">${payment.paymentId}</p>
-                            <p class="text-xs text-gray-500 mt-1">${formatDate(payment.paymentDate)}</p>
+                            <p class="font-semibold">${payment.paymentId || 'N/A'}</p>
+                            <p class="text-xs text-gray-500 mt-1">${formatDate(payment.date)}</p>
                         </div>
                         <div class="text-right mr-4">
-                            <p class="font-bold text-blue-600">${formatCurrency(payment.amount)}</p>
-                            <p class="text-xs text-gray-500 mt-1">${payment.paymentMethod}</p>
+                            <p class="font-bold text-green-600">${formatCurrency(payment.amount)}</p>
+                            <p class="text-xs text-gray-500 mt-1">${payment.method || 'N/A'}</p>
                         </div>
                         <div class="badge-premium badge-success">
-                            <i class="fas fa-arrow-left"></i>
-                            ${payment.invoiceNumber}
+                            <i class="fas fa-file-invoice"></i>
+                            ${payment.invoiceNumber || 'N/A'}
                         </div>
                     </div>
                 `).join('')}

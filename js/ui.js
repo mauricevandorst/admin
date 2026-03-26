@@ -136,16 +136,26 @@ function toggleMobileMenu() {
     }
 }
 
-function createModal(title, content, onSave) {
+function createModal(title, content, onSave, saveButtonText = 'Opslaan', size = 'md') {
     const modal = document.createElement('div');
     modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]';
     modal.style.backdropFilter = 'blur(4px)';
+
+    // Determine modal width based on size
+    const sizeClasses = {
+        'sm': 'max-w-md',
+        'md': 'max-w-2xl',
+        'lg': 'max-w-4xl',
+        'xl': 'max-w-6xl',
+        'full': 'max-w-7xl'
+    };
+    const widthClass = sizeClasses[size] || sizeClasses['md'];
 
     // Track if form has unsaved changes
     let hasUnsavedChanges = false;
 
     modal.innerHTML = `
-        <div class="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto relative shadow-2xl">
+        <div class="bg-white rounded-lg p-6 w-full ${widthClass} max-h-[90vh] overflow-y-auto relative shadow-2xl">
             <!-- Close button -->
             <button onclick="closeModalWithConfirmation(this)" 
                     class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 transition-colors text-gray-600 hover:text-gray-900"
@@ -161,7 +171,7 @@ function createModal(title, content, onSave) {
                     Annuleren
                 </button>
                 <button id="saveBtn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded">
-                    Opslaan
+                    ${saveButtonText}
                 </button>
             </div>
         </div>

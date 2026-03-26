@@ -1,13 +1,29 @@
 // Reports and Analytics page
 async function loadReports() {
     try {
-        // Fetch all data
-        const [customers, invoices, payments, subscriptions] = await Promise.all([
+        // Fetch all data - betalingen zijn nu onderdeel van facturen
+        const [customers, invoices, subscriptions] = await Promise.all([
             getAll('customers'),
             getAll('invoices'),
-            getAll('payments'),
             getAll('subscriptions')
         ]);
+
+        // Extract payments from invoices
+        const payments = [];
+        if (invoices && invoices.length > 0) {
+            invoices.forEach(invoice => {
+                if (invoice.payments && invoice.payments.length > 0) {
+                    invoice.payments.forEach(payment => {
+                        payments.push({
+                            ...payment,
+                            invoiceId: invoice.id,
+                            invoiceNumber: invoice.invoiceNumber,
+                            customerId: invoice.customerId
+                        });
+                    });
+                }
+            });
+        }
 
         const stats = calculateDetailedStats(customers, invoices, payments, subscriptions);
         renderReportsPage(stats, invoices, payments);
@@ -20,45 +36,45 @@ function calculateDetailedStats(customers, invoices, payments, subscriptions) {
     const now = new Date();
     const thisMonth = now.getMonth();
     const thisYear = now.getFullYear();
-    
+
     // Monthly stats
     const thisMonthInvoices = invoices?.filter(i => {
         const date = new Date(i.invoiceDate);
         return date.getMonth() === thisMonth && date.getFullYear() === thisYear;
     }) || [];
-    
+
     const thisMonthPayments = payments?.filter(p => {
-        const date = new Date(p.paymentDate);
+        const date = new Date(p.date);
         return date.getMonth() === thisMonth && date.getFullYear() === thisYear;
     }) || [];
-    
+
     const thisMonthRevenue = thisMonthPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
-    
+
     // Year stats
     const thisYearInvoices = invoices?.filter(i => {
         const date = new Date(i.invoiceDate);
         return date.getFullYear() === thisYear;
     }) || [];
-    
+
     const thisYearRevenue = payments?.filter(p => {
-        const date = new Date(p.paymentDate);
+        const date = new Date(p.date);
         return date.getFullYear() === thisYear;
     }).reduce((sum, p) => sum + (p.amount || 0), 0) || 0;
-    
+
     // Payment method distribution
     const paymentMethods = {};
     payments?.forEach(p => {
-        const method = p.paymentMethod || 'unknown';
+        const method = p.method || 'unknown';
         paymentMethods[method] = (paymentMethods[method] || 0) + 1;
     });
-    
+
     // Invoice status distribution
     const invoiceStatus = {
         paid: invoices?.filter(i => i.status === 'paid').length || 0,
         pending: invoices?.filter(i => i.status === 'pending').length || 0,
         overdue: invoices?.filter(i => i.status === 'overdue').length || 0
     };
-    
+
     // Top customers by revenue
     const customerRevenue = {};
     invoices?.forEach(inv => {
@@ -66,7 +82,7 @@ function calculateDetailedStats(customers, invoices, payments, subscriptions) {
             customerRevenue[inv.customerId] = (customerRevenue[inv.customerId] || 0) + (inv.totalAmount || 0);
         }
     });
-    
+
     const topCustomers = Object.entries(customerRevenue)
         .sort((a, b) => b[1] - a[1])
         .slice(0, 5)
@@ -304,7 +320,7 @@ function renderTopCustomers(topCustomers) {
 function renderActivityTimeline(invoices, payments) {
     // Combine invoices and payments, sort by date
     const activities = [];
-    
+
     invoices?.forEach(inv => {
         activities.push({
             type: 'invoice',
@@ -312,23 +328,23 @@ function renderActivityTimeline(invoices, payments) {
             data: inv
         });
     });
-    
+
     payments?.forEach(pay => {
         activities.push({
             type: 'payment',
-            date: new Date(pay.paymentDate),
+            date: new Date(pay.date),
             data: pay
         });
     });
-    
+
     // Sort by date descending, take last 10
     activities.sort((a, b) => b.date - a.date);
     const recent = activities.slice(0, 10);
-    
+
     if (recent.length === 0) {
         return '<p class="text-gray-500 text-center py-4">Geen recente activiteiten</p>';
     }
-    
+
     return `
         <div class="space-y-3">
             ${recent.map(activity => {

@@ -1,12 +1,11 @@
 // Invoices management
 async function loadInvoices() {
     try {
-        const [invoices, customers, payments] = await Promise.all([
+        const [invoices, customers] = await Promise.all([
             getAll('invoices'),
-            getAll('customers'),
-            getAll('payments')
+            getAll('customers')
         ]);
-        
+
         let html = `
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-2xl font-bold">Facturen</h2>
@@ -16,7 +15,7 @@ async function loadInvoices() {
                 </button>
             </div>
         `;
-        
+
         if (!invoices || invoices.length === 0) {
             html += '<p class="text-gray-500 text-center py-8">Geen facturen gevonden</p>';
         } else {
@@ -36,10 +35,10 @@ async function loadInvoices() {
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
             `;
-            
+
             invoices.forEach(invoice => {
-                // Calculate paid amount for this invoice
-                const invoicePayments = payments?.filter(p => p.invoiceNumber === invoice.invoiceNumber) || [];
+                // Calculate paid amount from payments within the invoice
+                const invoicePayments = invoice.payments || [];
                 const paidAmount = invoicePayments.reduce((sum, p) => sum + (p.amount || 0), 0);
                 const remainingAmount = invoice.totalAmount - paidAmount;
                 const paymentPercentage = invoice.totalAmount > 0 ? (paidAmount / invoice.totalAmount * 100) : 0;
@@ -268,12 +267,143 @@ function getInvoiceForm(invoice = null, allInvoices = [], customers = []) {
     `;
 }
 
+// Enhanced invoice form with payment history (for editing existing invoices)
+function getInvoiceFormWithPayments(invoice, allInvoices, customers, payments, totalPaid, remainingAmount) {
+    console.log('getInvoiceFormWithPayments called with:', {
+        invoiceNumber: invoice.invoiceNumber,
+        paymentsCount: payments?.length || 0,
+        totalPaid,
+        remainingAmount
+    });
+
+    // Get the base form
+    const baseForm = getInvoiceForm(invoice, allInvoices, customers);
+
+    // Build payment history section
+    let paymentHistoryHtml = '';
+    if (payments && payments.length > 0) {
+        paymentHistoryHtml = payments.map(payment => `
+            <div class="flex items-center justify-between p-3 bg-white rounded border hover:bg-gray-50">
+                <div class="flex-1">
+                    <p class="font-semibold text-sm">${payment.paymentId}</p>
+                    <p class="text-xs text-gray-500">${formatDate(payment.date)}</p>
+                </div>
+                <div class="text-right mr-3">
+                    <p class="font-bold text-green-600">${formatCurrency(payment.amount || 0)}</p>
+                    <p class="text-xs text-gray-500">${payment.method || 'N/A'}</p>
+                </div>
+                <span class="badge-premium badge-success">
+                    <i class="fas fa-check"></i>
+                </span>
+            </div>
+        `).join('');
+    } else {
+        paymentHistoryHtml = `
+            <div class="text-center py-6 text-gray-500">
+                <i class="fas fa-inbox text-3xl mb-2 opacity-50"></i>
+                <p class="text-sm">Nog geen betalingen geregistreerd</p>
+            </div>
+        `;
+    }
+
+    // Payment status indicator
+    const paymentPercentage = invoice.totalAmount > 0 ? (totalPaid / invoice.totalAmount * 100) : 0;
+    const statusColor = paymentPercentage >= 100 ? 'green' : paymentPercentage > 0 ? 'blue' : 'yellow';
+    const statusBg = paymentPercentage >= 100 ? 'bg-green-50 border-green-200' : paymentPercentage > 0 ? 'bg-blue-50 border-blue-200' : 'bg-yellow-50 border-yellow-200';
+
+    console.log('Payment section config:', {
+        paymentPercentage,
+        statusColor,
+        statusBg,
+        showButton: remainingAmount > 0
+    });
+
+    // Check if invoice is marked as paid (read-only for payment history)
+    const isPaid = invoice.status === 'paid';
+
+    const paymentSection = `
+        <!-- Payment History Section -->
+        <div id="paymentHistorySection" class="${statusBg} p-4 rounded-lg border mt-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-bold text-lg flex items-center">
+                    <i class="fas fa-credit-card mr-2 text-${statusColor}-600"></i>
+                    Betaalgeschiedenis
+                    ${isPaid ? '<span class="ml-2 text-xs bg-green-600 text-white px-2 py-1 rounded"><i class="fas fa-lock"></i> Vergrendeld</span>' : ''}
+                </h3>
+                ${!isPaid && remainingAmount > 0 ? `
+                    <button type="button" 
+                            id="addPaymentBtn"
+                            onclick="event.preventDefault(); showCreatePaymentForInvoice('${invoice.id}')" 
+                            class="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-sm">
+                        <i class="fas fa-plus"></i> Betaling Registreren
+                    </button>
+                ` : ''}
+            </div>
+
+            ${isPaid ? `
+                <div class="bg-green-100 border border-green-300 rounded p-3 mb-4">
+                    <p class="text-sm text-green-800">
+                        <i class="fas fa-info-circle mr-2"></i>
+                        <strong>Betaalgeschiedenis is vergrendeld</strong> - Deze factuur heeft de status "Betaald". 
+                        Wijzig de status om betalingen toe te voegen of te bewerken.
+                    </p>
+                </div>
+            ` : ''}
+
+            <!-- Payment Summary -->
+            <div class="grid grid-cols-3 gap-4 mb-4">
+                <div class="bg-white p-3 rounded border">
+                    <p class="text-xs text-gray-600 mb-1">Totaal Factuur</p>
+                    <p class="text-xl font-bold text-gray-900">${formatCurrency(invoice.totalAmount || 0)}</p>
+                </div>
+                <div class="bg-white p-3 rounded border">
+                    <p class="text-xs text-gray-600 mb-1">Betaald</p>
+                    <p class="text-xl font-bold text-green-600">${formatCurrency(totalPaid)}</p>
+                    ${payments && payments.length > 0 ? `<p class="text-xs text-gray-500 mt-1">${payments.length} betaling${payments.length > 1 ? 'en' : ''}</p>` : ''}
+                </div>
+                <div class="bg-white p-3 rounded border">
+                    <p class="text-xs text-gray-600 mb-1">Openstaand</p>
+                    <p class="text-xl font-bold text-${remainingAmount > 0 ? 'yellow' : 'green'}-600">${formatCurrency(remainingAmount)}</p>
+                    ${paymentPercentage > 0 ? `
+                        <div class="mt-2">
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div class="bg-${statusColor}-600 h-2 rounded-full transition-all" style="width: ${Math.min(paymentPercentage, 100)}%"></div>
+                            </div>
+                        </div>
+                    ` : ''}
+                </div>
+            </div>
+
+            <!-- Payment List -->
+            <div class="space-y-2">
+                <h4 class="font-semibold text-sm text-gray-700 mb-2">Geregistreerde betalingen:</h4>
+                ${paymentHistoryHtml}
+            </div>
+        </div>
+    `;
+
+    // Insert payment section before the closing div of the base form
+    // The base form ends with:         </div>\n    `; so we need to insert before that
+    const lastDivIndex = baseForm.lastIndexOf('</div>');
+    if (lastDivIndex === -1) {
+        console.error('Could not find closing </div> in base form');
+        return baseForm; // Return base form unchanged if we can't find the insertion point
+    }
+
+    console.log('Inserting payment section at position:', lastDivIndex);
+
+    // Insert the payment section before the last </div>
+    const result = baseForm.slice(0, lastDivIndex) + paymentSection + baseForm.slice(lastDivIndex);
+    console.log('Payment section inserted successfully');
+    return result;
+}
+
 // Generate a single invoice item row
 function getInvoiceItemRow(index, item = {}) {
     const description = item.description || '';
     const quantity = item.quantity || 1;
     const unitPrice = item.unitPrice || 0;
-    const vatPercentage = item.vatPercentage || 21;
+    const vatPercentage = item.vatPercentage !== undefined ? item.vatPercentage : 21;
 
     return `
         <div class="invoice-item bg-white p-3 rounded border" data-index="${index}">
@@ -482,21 +612,39 @@ async function showEditInvoice(id) {
             getAll('customers')
         ]);
 
-        createModal('Factuur Bewerken', getInvoiceForm(invoice, allInvoices, customers || []), async () => {
-            const data = getInvoiceData();
+        // Get payments from within the invoice
+        const invoicePayments = invoice.payments || [];
 
-            // Validate items
-            if (!data.items || data.items.length === 0) {
-                throw new Error('Voeg minimaal 1 factuurregel toe');
-            }
+        const totalPaid = invoicePayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+        const remainingAmount = Math.max((invoice.totalAmount || 0) - totalPaid, 0);
 
-            await update('invoices', id, data);
-            showToast('Factuur bijgewerkt', 'success');
-            loadInvoices();
-        });
+        createModal(
+            'Factuur Bewerken', 
+            getInvoiceFormWithPayments(invoice, allInvoices, customers || [], invoicePayments, totalPaid, remainingAmount), 
+            async () => {
+                const data = getInvoiceData();
+
+                // Validate items
+                if (!data.items || data.items.length === 0) {
+                    throw new Error('Voeg minimaal 1 factuurregel toe');
+                }
+
+                // Preserve existing payments when updating
+                data.payments = invoice.payments;
+
+                await update('invoices', id, data);
+                showToast('Factuur bijgewerkt', 'success');
+                loadInvoices();
+            },
+            'Opslaan',
+            'xl' // Larger modal for payment history
+        );
 
         // Initialize calculations after modal is created
-        setTimeout(() => calculateInvoiceTotals(), 100);
+        setTimeout(() => {
+            calculateInvoiceTotals();
+            setupStatusChangeListener(invoice, invoicePayments, totalPaid, remainingAmount);
+        }, 100);
     } catch (error) {
         showToast('Fout bij laden van factuur: ' + error.message, 'error');
     }
@@ -514,6 +662,70 @@ async function deleteInvoice(id) {
     }
 }
 
+// Setup listener for status dropdown changes to update payment history UI
+function setupStatusChangeListener(invoice, payments, totalPaid, remainingAmount) {
+    const statusDropdown = document.getElementById('status');
+    if (!statusDropdown) return;
+
+    statusDropdown.addEventListener('change', function() {
+        const newStatus = this.value;
+        const paymentSection = document.getElementById('paymentHistorySection');
+        const addPaymentBtn = document.getElementById('addPaymentBtn');
+
+        if (!paymentSection) return;
+
+        const isPaid = newStatus === 'paid';
+
+        // Update section styling
+        const statusColor = isPaid ? 'green' : (totalPaid > 0 ? 'blue' : 'yellow');
+        const statusBg = isPaid ? 'bg-green-50 border-green-200' : (totalPaid > 0 ? 'bg-blue-50 border-blue-200' : 'bg-yellow-50 border-yellow-200');
+
+        paymentSection.className = `${statusBg} p-4 rounded-lg border mt-6`;
+
+        // Show/hide payment button and locked indicator
+        const headerDiv = paymentSection.querySelector('.flex.justify-between.items-center');
+        if (headerDiv) {
+            const heading = headerDiv.querySelector('h3');
+            if (heading) {
+                // Remove existing lock badge if present
+                const existingBadge = heading.querySelector('.ml-2');
+                if (existingBadge) existingBadge.remove();
+
+                // Add lock badge if paid
+                if (isPaid) {
+                    heading.insertAdjacentHTML('beforeend', '<span class="ml-2 text-xs bg-green-600 text-white px-2 py-1 rounded"><i class="fas fa-lock"></i> Vergrendeld</span>');
+                }
+            }
+
+            // Show/hide add payment button
+            if (addPaymentBtn) {
+                addPaymentBtn.style.display = (!isPaid && remainingAmount > 0) ? 'inline-block' : 'none';
+            }
+        }
+
+        // Show/hide info message
+        let infoMessage = paymentSection.querySelector('.bg-green-100');
+        if (isPaid && !infoMessage) {
+            // Add info message
+            const summaryDiv = paymentSection.querySelector('.grid.grid-cols-3');
+            if (summaryDiv) {
+                summaryDiv.insertAdjacentHTML('beforebegin', `
+                    <div class="bg-green-100 border border-green-300 rounded p-3 mb-4">
+                        <p class="text-sm text-green-800">
+                            <i class="fas fa-info-circle mr-2"></i>
+                            <strong>Betaalgeschiedenis is vergrendeld</strong> - Deze factuur heeft de status "Betaald". 
+                            Wijzig de status om betalingen toe te voegen of te bewerken.
+                        </p>
+                    </div>
+                `);
+            }
+        } else if (!isPaid && infoMessage) {
+            // Remove info message
+            infoMessage.remove();
+        }
+    });
+}
+
 // Create payment for a specific invoice
 async function showCreatePaymentForInvoice(invoiceId) {
     try {
@@ -525,7 +737,7 @@ async function showCreatePaymentForInvoice(invoiceId) {
         }
 
         if (invoice.status === 'paid') {
-            showToast('Deze factuur is al betaald', 'info');
+            showToast('Deze factuur is als betaald gemarkeerd. Wijzig eerst de status om een betaling toe te voegen.', 'warning');
             return;
         }
 
