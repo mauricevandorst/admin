@@ -120,7 +120,7 @@ async function loadSubscriptions() {
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                             ${(() => {
-                                const alreadyInvoiced = sub.nextInvoiceDate && new Date(sub.nextInvoiceDate) > new Date();
+                                const alreadyInvoiced = sub.paymentStatus === 'invoiced';
                                 return alreadyInvoiced
                                     ? `<button disabled class="text-gray-300 mr-3 cursor-not-allowed" title="Al gefactureerd tot ${formatDate(sub.nextInvoiceDate)}">
                                            <i class="fas fa-file-invoice"></i>
