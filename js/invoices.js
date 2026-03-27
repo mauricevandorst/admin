@@ -89,7 +89,20 @@ async function loadInvoices() {
 
                 html += `
                     <tr class="hover:bg-gray-50">
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">${invoice.invoiceNumber || 'N/A'}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <div>${invoice.invoiceNumber || 'N/A'}</div>
+                            ${invoice.invoiceSource === 'order' ? `
+                                <div class="text-xs mt-1">
+                                    <span class="px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">
+                                        <i class="fas fa-shopping-cart"></i> Order
+                                    </span>
+                                </div>` : invoice.invoiceSource === 'subscription' ? `
+                                <div class="text-xs mt-1">
+                                    <span class="px-1.5 py-0.5 rounded bg-rose-100 text-rose-700">
+                                        <i class="fas fa-sync"></i> Abonnement
+                                    </span>
+                                </div>` : ''}
+                        </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm">${customerName}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" title="${invoice.reference || ''}">${invoice.reference || '-'}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm">${formatDate(invoice.invoiceDate)}</td>
@@ -106,6 +119,11 @@ async function loadInvoices() {
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                             ${paymentButton}
+                            <button onclick="downloadInvoicePdf('${invoice.id}')"
+                                    class="text-gray-600 hover:text-gray-900 mr-3"
+                                    title="Factuur downloaden als PDF">
+                                <i class="fas fa-file-download"></i>
+                            </button>
                             <button onclick="showEditInvoice('${invoice.id}')" 
                                     class="text-blue-600 hover:text-blue-900 mr-3">
                                 <i class="fas fa-edit"></i>
@@ -163,13 +181,15 @@ function getInvoiceForm(invoice = null, allInvoices = [], customers = []) {
             <!-- Header Information -->
             <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
                 <h3 class="font-bold text-lg mb-3">Factuurgegevens</h3>
-                <div class="grid grid-cols-2 gap-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                         <label for="customerId" class="block text-sm font-medium mb-2">Klant<span class="text-red-600 ml-1">*</span></label>
                         <select id="customerId" required
-                                class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500">
+                                ${invoice ? 'disabled' : ''}
+                                class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500 ${invoice ? 'bg-gray-100 cursor-not-allowed' : ''}">
                             ${customerOptions}
                         </select>
+                        ${invoice ? '<p class="text-xs text-gray-500 mt-1"><i class="fas fa-lock"></i> Klant kan niet worden gewijzigd</p>' : ''}
                     </div>
                     <div>
                         <label for="invoiceNumber" class="block text-sm font-medium mb-2">
@@ -182,7 +202,7 @@ function getInvoiceForm(invoice = null, allInvoices = [], customers = []) {
                     </div>
                 </div>
 
-                <div class="grid grid-cols-3 gap-4 mt-4">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
                     <div>
                         <label for="invoiceDate" class="block text-sm font-medium mb-2">
                             Factuurdatum<span class="text-red-600 ml-1">*</span>
@@ -245,7 +265,7 @@ function getInvoiceForm(invoice = null, allInvoices = [], customers = []) {
             </div>
 
             <!-- Notes and Status -->
-            <div class="grid ${invoice ? 'grid-cols-2' : 'grid-cols-1'} gap-4">
+            <div class="grid ${invoice ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'} gap-4">
                 <div>
                     <label for="notes" class="block text-sm font-medium mb-2">Opmerkingen</label>
                     <textarea id="notes" rows="3" 
@@ -348,7 +368,7 @@ function getInvoiceFormWithPayments(invoice, allInvoices, customers, payments, t
             </div>
 
             <!-- Payment Summary -->
-            <div class="grid grid-cols-3 gap-4 mb-4">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
                 <div class="bg-white p-3 rounded border">
                     <p class="text-xs text-gray-600 mb-1">Totaal Factuur</p>
                     <p class="text-xl font-bold text-gray-900">${formatCurrency(invoice.totalAmount || 0)}</p>
@@ -404,8 +424,8 @@ function getInvoiceItemRow(index, item = {}) {
 
     return `
         <div class="invoice-item bg-white p-3 rounded border" data-index="${index}">
-            <div class="grid grid-cols-12 gap-2 items-start">
-                <div class="col-span-5">
+            <div class="grid grid-cols-2 sm:grid-cols-12 gap-2 items-start">
+                <div class="col-span-2 sm:col-span-5">
                     <label class="block text-xs font-medium mb-1">Beschrijving<span class="text-red-600 ml-1">*</span></label>
                     <input type="text" 
                            class="item-description w-full px-2 py-1 border rounded text-sm" 
@@ -414,7 +434,7 @@ function getInvoiceItemRow(index, item = {}) {
                            onchange="calculateInvoiceTotals()"
                            required>
                 </div>
-                <div class="col-span-2">
+                <div class="col-span-1 sm:col-span-2">
                     <label class="block text-xs font-medium mb-1">Aantal<span class="text-red-600 ml-1">*</span></label>
                     <input type="number" 
                            class="item-quantity w-full px-2 py-1 border rounded text-sm" 
@@ -424,7 +444,7 @@ function getInvoiceItemRow(index, item = {}) {
                            onchange="calculateInvoiceTotals()"
                            required>
                 </div>
-                <div class="col-span-2">
+                <div class="col-span-1 sm:col-span-2">
                     <label class="block text-xs font-medium mb-1">Prijs<span class="text-red-600 ml-1">*</span></label>
                     <input type="number" 
                            class="item-price w-full px-2 py-1 border rounded text-sm" 
@@ -434,7 +454,7 @@ function getInvoiceItemRow(index, item = {}) {
                            onchange="calculateInvoiceTotals()"
                            required>
                 </div>
-                <div class="col-span-2">
+                <div class="col-span-1 sm:col-span-2">
                     <label class="block text-xs font-medium mb-1">BTW %</label>
                     <select class="item-vat w-full px-2 py-1 border rounded text-sm"
                             onchange="calculateInvoiceTotals()">
@@ -443,7 +463,7 @@ function getInvoiceItemRow(index, item = {}) {
                         <option value="21" ${vatPercentage === 21 ? 'selected' : ''}>21%</option>
                     </select>
                 </div>
-                <div class="col-span-1 flex items-end">
+                <div class="col-span-1 sm:col-span-1 flex items-end">
                     <button type="button" 
                             onclick="removeInvoiceItem(${index})"
                             class="px-2 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-sm w-full"
@@ -614,6 +634,7 @@ function getInvoiceData() {
         dueDate: document.getElementById('dueDate').value,
         reference: document.getElementById('reference').value.trim(),
         notes: document.getElementById('notes').value.trim(),
+        invoiceSource: 'manual',
         items: items,
         subTotal: subtotal,
         vatAmount: vatTotal,
@@ -936,5 +957,345 @@ async function showCreatePaymentForInvoice(invoiceId) {
         showCreatePaymentWithInvoice(invoice);
     } catch (error) {
         showToast('Fout bij laden van factuur: ' + error.message, 'error');
+    }
+}
+
+// Show invoice details in a read-only modal (called from payments tab)
+async function showInvoiceDetails(id) {
+    try {
+        const [invoice, customers] = await Promise.all([
+            getById('invoices', id),
+            getAll('customers')
+        ]);
+
+        if (!invoice) {
+            showToast('Factuur niet gevonden', 'error');
+            return;
+        }
+
+        const customer = customers?.find(c => c.customerId === invoice.customerId);
+        const customerName = customer?.business?.displayName || customer?.business?.name || invoice.customerId || 'N/A';
+
+        const invoicePayments = invoice.payments || [];
+        const totalPaid = invoicePayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+        const remainingAmount = Math.max((invoice.totalAmount || 0) - totalPaid, 0);
+
+        const statusConfig = {
+            paid: { class: 'bg-green-100 text-green-800', label: 'Betaald' },
+            partially_paid: { class: 'bg-blue-100 text-blue-800', label: 'Gedeeltelijk Betaald' },
+            pending: { class: 'bg-yellow-100 text-yellow-800', label: 'Openstaand' },
+            overdue: { class: 'bg-red-100 text-red-800', label: 'Achterstallig' }
+        };
+        const status = statusConfig[invoice.status] || statusConfig.pending;
+
+        let itemsHtml = (invoice.items || []).map(item => `
+            <tr>
+                <td class="py-2 pr-4 text-sm">${item.description || ''}</td>
+                <td class="py-2 pr-4 text-sm text-right">${item.quantity}</td>
+                <td class="py-2 pr-4 text-sm text-right">${formatCurrency(item.unitPrice)}</td>
+                <td class="py-2 pr-4 text-sm text-right">${item.vatPercentage}%</td>
+                <td class="py-2 text-sm text-right font-semibold">${formatCurrency(item.amount || item.quantity * item.unitPrice)}</td>
+            </tr>
+        `).join('');
+
+        let paymentsHtml = invoicePayments.length > 0
+            ? invoicePayments.map(p => `
+                <div class="flex justify-between items-center text-sm py-1 border-b last:border-0">
+                    <span class="text-gray-600">${formatDate(p.date)} – ${p.method || 'N/A'}</span>
+                    <span class="font-semibold text-green-600">${formatCurrency(p.amount)}</span>
+                </div>`).join('')
+            : '<p class="text-sm text-gray-500">Geen betalingen geregistreerd</p>';
+
+        const content = `
+            <div class="space-y-5">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-gray-500 text-sm">Klant</p>
+                        <p class="font-semibold">${customerName}</p>
+                    </div>
+                    <span class="px-3 py-1 text-sm font-semibold rounded ${status.class}">${status.label}</span>
+                </div>
+
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                    <div>
+                        <p class="text-gray-500 text-xs">Factuurnummer</p>
+                        <p class="font-medium">${invoice.invoiceNumber || 'N/A'}</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-500 text-xs">Factuurdatum</p>
+                        <p class="font-medium">${formatDate(invoice.invoiceDate)}</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-500 text-xs">Vervaldatum</p>
+                        <p class="font-medium">${formatDate(invoice.dueDate)}</p>
+                    </div>
+                    ${invoice.reference ? `<div>
+                        <p class="text-gray-500 text-xs">Referentie</p>
+                        <p class="font-medium">${invoice.reference}</p>
+                    </div>` : ''}
+                </div>
+
+                <div class="border rounded overflow-hidden">
+                    <table class="min-w-full">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="py-2 pr-4 text-left text-xs font-medium text-gray-500 uppercase px-3">Beschrijving</th>
+                                <th class="py-2 pr-4 text-right text-xs font-medium text-gray-500 uppercase">Aantal</th>
+                                <th class="py-2 pr-4 text-right text-xs font-medium text-gray-500 uppercase">Prijs</th>
+                                <th class="py-2 pr-4 text-right text-xs font-medium text-gray-500 uppercase">BTW</th>
+                                <th class="py-2 text-right text-xs font-medium text-gray-500 uppercase pr-3">Bedrag</th>
+                            </tr>
+                        </thead>
+                        <tbody class="px-3">${itemsHtml}</tbody>
+                    </table>
+                </div>
+
+                <div class="bg-gray-50 rounded p-4 space-y-1 text-sm">
+                    <div class="flex justify-between"><span>Subtotaal</span><span>${formatCurrency(invoice.subTotal)}</span></div>
+                    <div class="flex justify-between"><span>BTW</span><span>${formatCurrency(invoice.vatAmount)}</span></div>
+                    <div class="flex justify-between font-bold text-base border-t pt-2 mt-2">
+                        <span>Totaal</span><span>${formatCurrency(invoice.totalAmount)}</span>
+                    </div>
+                    ${invoicePayments.length > 0 ? `
+                    <div class="flex justify-between text-green-600"><span>Betaald</span><span>${formatCurrency(totalPaid)}</span></div>
+                    <div class="flex justify-between font-semibold ${remainingAmount > 0 ? 'text-yellow-600' : 'text-green-600'}">
+                        <span>Openstaand</span><span>${formatCurrency(remainingAmount)}</span>
+                    </div>` : ''}
+                </div>
+
+                ${invoicePayments.length > 0 ? `
+                <div>
+                    <p class="text-sm font-semibold mb-2">Betalingen</p>
+                    ${paymentsHtml}
+                </div>` : ''}
+
+                ${invoice.notes ? `<div class="bg-blue-50 rounded p-3 text-sm text-blue-800">${invoice.notes}</div>` : ''}
+
+                <div class="flex justify-end">
+                    <button onclick="downloadInvoicePdf('${invoice.id}')"
+                            class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded flex items-center gap-2">
+                        <i class="fas fa-file-download"></i> Factuur downloaden als PDF
+                    </button>
+                </div>
+            </div>
+        `;
+
+        const modal = document.createElement('div');
+        modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]';
+        modal.style.backdropFilter = 'blur(4px)';
+        modal.innerHTML = `
+            <div class="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto relative shadow-2xl">
+                <button onclick="this.closest('.fixed').remove()"
+                        class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 transition-colors text-gray-600 hover:text-gray-900"
+                        title="Sluiten">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+                <h2 class="text-2xl font-bold mb-4 pr-8">Factuur ${invoice.invoiceNumber || ''}</h2>
+                <div>${content}</div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    } catch (error) {
+        showToast('Fout bij laden van factuur: ' + error.message, 'error');
+    }
+}
+
+// Download invoice as PDF directly in the browser
+async function downloadInvoicePdf(invoiceId) {
+    try {
+        showToast('Factuur wordt gegenereerd...', 'info');
+
+        const [invoice, customers] = await Promise.all([
+            getById('invoices', invoiceId),
+            getAll('customers')
+        ]);
+
+        if (!invoice) {
+            showToast('Factuur niet gevonden', 'error');
+            return;
+        }
+
+        const session = getSession();
+        const companyName = session?.companyName || 'Rice Studio';
+        const companyAddress = session?.address;
+        const companyKvk = session?.kvkNumber;
+        const companyVat = session?.vatNumber;
+
+        const customer = customers?.find(c => c.customerId === invoice.customerId);
+        const customerName = customer?.business?.displayName || customer?.business?.name || invoice.customerId || '';
+        const customerAddress = customer?.business?.address;
+        const customerEmail = customer?.business?.emailAddress || customer?.contact?.emailAddress || '';
+
+        const invoicePayments = invoice.payments || [];
+        const totalPaid = invoicePayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+        const remainingAmount = Math.max((invoice.totalAmount || 0) - totalPaid, 0);
+
+        const statusLabels = {
+            paid: 'Betaald', partially_paid: 'Gedeeltelijk Betaald',
+            pending: 'Openstaand', overdue: 'Achterstallig'
+        };
+        const statusLabel = statusLabels[invoice.status] || 'Openstaand';
+
+        const badgeColor = {
+            paid: 'background:#dcfce7;color:#166534;',
+            partially_paid: 'background:#dbeafe;color:#1e40af;',
+            overdue: 'background:#fee2e2;color:#991b1b;'
+        }[invoice.status] || 'background:#fef9c3;color:#854d0e;';
+
+        const itemsHtml = (invoice.items || []).map(item => `
+            <tr>
+                <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;">${item.description || ''}</td>
+                <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;text-align:right;">${item.quantity}</td>
+                <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;text-align:right;">${formatCurrency(item.unitPrice)}</td>
+                <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;text-align:right;">${item.vatPercentage}%</td>
+                <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;text-align:right;font-weight:600;">${formatCurrency(item.amount || item.quantity * item.unitPrice)}</td>
+            </tr>
+        `).join('');
+
+        const addressHtml = customerAddress
+            ? `<div>${customerAddress.street || ''} ${customerAddress.houseNumber || ''}</div>
+               <div>${customerAddress.postalCode || ''} ${customerAddress.city || ''}</div>`
+            : '';
+
+        const paymentsRows = invoicePayments.length > 0
+            ? invoicePayments.map(p => `
+                <tr>
+                    <td style="padding:4px 12px;border-bottom:1px solid #e5e7eb;">${formatDate(p.date)}</td>
+                    <td style="padding:4px 12px;border-bottom:1px solid #e5e7eb;">${p.method || 'N/A'}</td>
+                    <td style="padding:4px 12px;border-bottom:1px solid #e5e7eb;text-align:right;color:#16a34a;font-weight:600;">${formatCurrency(p.amount)}</td>
+                </tr>`).join('')
+            : '';
+
+        const container = document.createElement('div');
+        container.style.cssText = 'position:fixed;left:0;top:0;width:794px;background:#fff;z-index:-9999;pointer-events:none;';
+        container.innerHTML = `
+            <div style="font-family:Arial,sans-serif;font-size:13px;color:#111827;background:#fff;padding:40px;">
+
+                <!-- Header -->
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:40px;">
+                    <div>
+                        <div style="font-size:28px;font-weight:700;color:#166534;">${companyName}</div>
+                        ${companyAddress ? `
+                        <div style="font-size:12px;color:#6b7280;margin-top:4px;">
+                            ${companyAddress.street ? `<div>${companyAddress.street} ${companyAddress.houseNumber || ''}</div>` : ''}
+                            ${companyAddress.postalCode || companyAddress.city ? `<div>${companyAddress.postalCode || ''} ${companyAddress.city || ''}</div>` : ''}
+                        </div>` : ''}
+                        ${companyKvk || companyVat ? `
+                        <div style="font-size:11px;color:#9ca3af;margin-top:6px;">
+                            ${companyKvk ? `<div>KVK: ${companyKvk}</div>` : ''}
+                            ${companyVat ? `<div>BTW: ${companyVat}</div>` : ''}
+                        </div>` : ''}
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="font-size:22px;font-weight:700;">FACTUUR</div>
+                        <div style="color:#6b7280;font-size:14px;">${invoice.invoiceNumber || ''}</div>
+                        <div style="margin-top:8px;">
+                            <span style="display:inline-block;padding:3px 10px;border-radius:9999px;font-size:11px;font-weight:700;${badgeColor}">${statusLabel}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Factuur aan / Gegevens -->
+                <div style="display:flex;justify-content:space-between;margin-bottom:32px;">
+                    <div>
+                        <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">Factuur aan</div>
+                        <div style="font-weight:600;">${customerName}</div>
+                        <div style="font-size:12px;color:#374151;margin-top:2px;">${addressHtml}</div>
+                        ${customerEmail ? `<div style="font-size:12px;color:#374151;">${customerEmail}</div>` : ''}
+                    </div>
+                    <div style="text-align:right;font-size:12px;">
+                        <table style="margin-left:auto;border-collapse:collapse;">
+                            <tr>
+                                <td style="padding:3px 16px 3px 0;color:#6b7280;font-size:11px;text-transform:uppercase;">Factuurdatum</td>
+                                <td style="padding:3px 0;">${formatDate(invoice.invoiceDate)}</td>
+                            </tr>
+                            <tr>
+                                <td style="padding:3px 16px 3px 0;color:#6b7280;font-size:11px;text-transform:uppercase;">Vervaldatum</td>
+                                <td style="padding:3px 0;">${formatDate(invoice.dueDate)}</td>
+                            </tr>
+                            ${invoice.reference ? `<tr>
+                                <td style="padding:3px 16px 3px 0;color:#6b7280;font-size:11px;text-transform:uppercase;">Referentie</td>
+                                <td style="padding:3px 0;">${invoice.reference}</td>
+                            </tr>` : ''}
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Factuurregels -->
+                <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
+                    <thead>
+                        <tr style="background:#f3f4f6;">
+                            <th style="padding:10px 12px;text-align:left;font-size:11px;text-transform:uppercase;color:#6b7280;width:45%;">Beschrijving</th>
+                            <th style="padding:10px 12px;text-align:right;font-size:11px;text-transform:uppercase;color:#6b7280;">Aantal</th>
+                            <th style="padding:10px 12px;text-align:right;font-size:11px;text-transform:uppercase;color:#6b7280;">Stukprijs</th>
+                            <th style="padding:10px 12px;text-align:right;font-size:11px;text-transform:uppercase;color:#6b7280;">BTW</th>
+                            <th style="padding:10px 12px;text-align:right;font-size:11px;text-transform:uppercase;color:#6b7280;">Bedrag</th>
+                        </tr>
+                    </thead>
+                    <tbody>${itemsHtml}</tbody>
+                </table>
+
+                <!-- Totalen -->
+                <div style="display:flex;justify-content:flex-end;margin-bottom:24px;">
+                    <table style="width:280px;border-collapse:collapse;">
+                        <tr><td style="padding:5px 0;">Subtotaal</td><td style="padding:5px 0;text-align:right;font-weight:600;">${formatCurrency(invoice.subTotal)}</td></tr>
+                        <tr><td style="padding:5px 0;">BTW</td><td style="padding:5px 0;text-align:right;font-weight:600;">${formatCurrency(invoice.vatAmount)}</td></tr>
+                        <tr>
+                            <td style="padding:10px 0 5px;border-top:2px solid #111827;font-size:16px;font-weight:700;">Totaal</td>
+                            <td style="padding:10px 0 5px;border-top:2px solid #111827;font-size:16px;font-weight:700;text-align:right;">${formatCurrency(invoice.totalAmount)}</td>
+                        </tr>
+                        ${totalPaid > 0 ? `
+                        <tr><td style="padding:5px 0;color:#16a34a;">Betaald</td><td style="padding:5px 0;text-align:right;font-weight:600;color:#16a34a;">${formatCurrency(totalPaid)}</td></tr>
+                        <tr>
+                            <td style="padding:5px 0;font-weight:700;${remainingAmount > 0 ? 'color:#ca8a04;' : 'color:#16a34a;'}">Openstaand</td>
+                            <td style="padding:5px 0;text-align:right;font-weight:700;${remainingAmount > 0 ? 'color:#ca8a04;' : 'color:#16a34a;'}">${formatCurrency(remainingAmount)}</td>
+                        </tr>` : ''}
+                    </table>
+                </div>
+
+                <!-- Betalingen -->
+                ${invoicePayments.length > 0 ? `
+                <div style="margin-top:8px;">
+                    <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">Betalingen</div>
+                    <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
+                        <thead>
+                            <tr style="background:#f3f4f6;">
+                                <th style="padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;color:#6b7280;">Datum</th>
+                                <th style="padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;color:#6b7280;">Methode</th>
+                                <th style="padding:8px 12px;text-align:right;font-size:11px;text-transform:uppercase;color:#6b7280;">Bedrag</th>
+                            </tr>
+                        </thead>
+                        <tbody>${paymentsRows}</tbody>
+                    </table>
+                </div>` : ''}
+
+                <!-- Opmerkingen -->
+                ${invoice.notes ? `
+                <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;padding:12px;font-size:12px;color:#374151;margin-top:8px;">
+                    <strong>Opmerkingen:</strong> ${invoice.notes}
+                </div>` : ''}
+
+                <!-- Footer -->
+                <div style="margin-top:48px;border-top:1px solid #e5e7eb;padding-top:16px;text-align:center;font-size:11px;color:#9ca3af;">
+                    Gegenereerd door ${companyName} op ${new Date().toLocaleDateString('nl-NL')}
+                </div>
+
+            </div>
+        `;
+
+        document.body.appendChild(container);
+
+        await html2pdf().set({
+            margin: 0,
+            filename: `Factuur-${invoice.invoiceNumber || invoiceId}.pdf`,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2, useCORS: true, logging: false, scrollX: 0, scrollY: 0 },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        }).from(container).save();
+
+        document.body.removeChild(container);
+        showToast('Factuur gedownload', 'success');
+    } catch (error) {
+        showToast('Fout bij genereren factuur: ' + error.message, 'error');
     }
 }

@@ -5,9 +5,9 @@ async function loadMaintenancePlans() {
         
         let html = `
             <div class="flex justify-between items-center mb-6">
-                <h2 class="text-2xl font-bold">Onderhoudsplannen</h2>
+                <h2 class="text-2xl font-bold">Onderhouds&shy;plannen</h2>
                 <button onclick="showCreatePlan()" 
-                        class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded">
+                        class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-nowrap rounded">
                     <i class="fas fa-plus"></i> Nieuw Plan
                 </button>
             </div>

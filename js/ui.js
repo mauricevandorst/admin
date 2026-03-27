@@ -72,6 +72,9 @@ function switchTab(tabName) {
         case 'customers':
             loadCustomers();
             break;
+        case 'orders':
+            loadOrders();
+            break;
         case 'invoices':
             loadInvoices();
             break;
@@ -86,6 +89,9 @@ function switchTab(tabName) {
             break;
         case 'reports':
             loadReports();
+            break;
+        case 'users':
+            loadUsers();
             break;
         default:
             showError('Pagina niet gevonden');
@@ -103,7 +109,7 @@ function closeAllModals() {
     // Close all other modals (created with createModal)
     const modals = document.querySelectorAll('.fixed');
     modals.forEach(modal => {
-        if (modal.id !== 'userSettingsModal' && modal.id !== 'toast' && modal.id !== 'appFooter') {
+        if (modal.id !== 'userSettingsModal' && modal.id !== 'toast' && modal.id !== 'appFooter' && modal.id !== 'loginScreen') {
             modal.remove();
         }
     });
@@ -128,20 +134,33 @@ function toggleMobileMenu() {
     const hamburgerIcon = document.getElementById('hamburgerIcon');
 
     if (mobileMenu) {
-        mobileMenu.classList.toggle('hidden');
+        const isOpen = mobileMenu.classList.toggle('menu-open');
 
         // Change hamburger icon to X when menu is open
         if (hamburgerIcon) {
-            if (mobileMenu.classList.contains('hidden')) {
-                hamburgerIcon.classList.remove('fa-times');
-                hamburgerIcon.classList.add('fa-bars');
-            } else {
+            if (isOpen) {
                 hamburgerIcon.classList.remove('fa-bars');
                 hamburgerIcon.classList.add('fa-times');
+            } else {
+                hamburgerIcon.classList.remove('fa-times');
+                hamburgerIcon.classList.add('fa-bars');
             }
         }
     }
 }
+
+// Close mobile menu on window resize to desktop width
+window.addEventListener('resize', () => {
+    if (window.innerWidth >= 1280) {
+        const mobileMenu = document.getElementById('mobileMenu');
+        const hamburgerIcon = document.getElementById('hamburgerIcon');
+        if (mobileMenu) mobileMenu.classList.remove('menu-open');
+        if (hamburgerIcon) {
+            hamburgerIcon.classList.remove('fa-times');
+            hamburgerIcon.classList.add('fa-bars');
+        }
+    }
+});
 
 function createModal(title, content, onSave, saveButtonText = 'Opslaan', size = 'md') {
     const modal = document.createElement('div');

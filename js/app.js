@@ -4,8 +4,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const settings = getUserSettings();
     applyUserSettings(settings);
 
-    // Load default tab (dashboard)
-    switchTab('dashboard');
+    // switchTab wordt al aangeroepen door auth.js als de gebruiker ingelogd is
+    if (isLoggedIn()) {
+        switchTab('dashboard');
+    }
 
     // Set current year in footer
     const footerYear = document.getElementById('footerYear');
@@ -31,7 +33,7 @@ document.addEventListener('click', (e) => {
     if (e.target.classList.contains('fixed')) {
         if (e.target.id === 'userSettingsModal') {
             closeUserSettings();
-        } else if (e.target.id !== 'toast') {
+        } else if (e.target.id !== 'toast' && e.target.id !== 'loginScreen' && e.target.id !== 'appFooter') {
             e.target.remove();
         }
     }

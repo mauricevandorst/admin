@@ -10,32 +10,99 @@
     <link rel="stylesheet" href="css/bamboo-theme.css">
 </head>
 <body class="flex flex-col min-h-screen">
+
+    <!-- Login Screen -->
+    <div id="loginScreen" class="hidden fixed inset-0 z-[99999] flex items-center justify-center" style="background: linear-gradient(135deg, #1a2e1a 0%, #2d5a27 50%, #1a2e1a 100%);">
+        <div class="w-full max-w-sm px-4">
+            <div class="bg-white rounded-2xl shadow-2xl overflow-hidden">
+                <div class="p-8">
+                    <div class="text-center mb-8">
+                        <div class="text-5xl mb-3">🎋</div>
+                        <h1 class="text-3xl font-bold" style="background: var(--gradient-bamboo); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">RiceDesk</h1>
+                        <p class="text-gray-500 text-sm mt-1">Beheerportaal</p>
+                    </div>
+                    <form onsubmit="handleLogin(event)" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Gebruikersnaam</label>
+                            <div class="relative">
+                                <i class="fas fa-user absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                                <input type="text" id="loginUsername" autocomplete="username"
+                                       class="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:border-transparent"
+                                       style="--tw-ring-color: #4a7c59;"
+                                       placeholder="Gebruikersnaam">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Wachtwoord</label>
+                            <div class="relative">
+                                <i class="fas fa-lock absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                                <input type="password" id="loginPassword" autocomplete="current-password"
+                                       class="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:border-transparent"
+                                       placeholder="Wachtwoord">
+                            </div>
+                        </div>
+                        <p id="loginError" class="hidden text-red-600 text-sm font-medium"></p>
+                        <button type="submit" id="loginBtn"
+                                class="w-full py-2.5 rounded-xl text-white font-semibold flex items-center justify-center gap-2 transition-opacity hover:opacity-90"
+                                style="background: var(--gradient-bamboo);">
+                            <i class="fas fa-sign-in-alt mr-2"></i>Inloggen
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Application (hidden until logged in) -->
+    <div id="mainApp" class="hidden flex flex-col min-h-screen">
     <!-- Navigation -->
     <nav class="bamboo-nav">
-        <div class="container mx-auto px-6 py-4">
+        <div class="w-full px-4 sm:px-6 py-3">
             <div class="flex items-center justify-between">
                 <div class="flex items-center space-x-8">
                     <h1 class="text-2xl font-bold flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity" onclick="switchTab('dashboard')" title="Terug naar Dashboard">
                         <span class="text-3xl">🎋</span>
                         <span style="background: var(--gradient-bamboo); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">RiceDesk</span>
                     </h1>
-                    <div class="hidden md:flex space-x-2">
+                    <div class="hidden xl:flex space-x-2">
                         <button onclick="switchTab('dashboard')" id="nav-dashboard" 
                                 class="nav-button px-4 py-2 font-medium flex items-center gap-2">
                             <i class="fas fa-chart-line"></i> Dashboard
                         </button>
-                        <button onclick="switchTab('customers')" id="nav-customers" 
-                                class="nav-button px-4 py-2 font-medium flex items-center gap-2">
-                            <i class="fas fa-users"></i> Klanten
-                        </button>
-                        <button onclick="switchTab('invoices')" id="nav-invoices" 
-                                class="nav-button px-4 py-2 font-medium flex items-center gap-2">
-                            <i class="fas fa-file-invoice"></i> Facturen
-                        </button>
-                        <button onclick="switchTab('payments')" id="nav-payments" 
-                                class="nav-button px-4 py-2 font-medium flex items-center gap-2">
-                            <i class="fas fa-credit-card"></i> Betalingen
-                        </button>
+                        <!-- Klanten dropdown -->
+                        <div class="relative group">
+                            <button class="nav-button px-4 py-2 font-medium flex items-center gap-2">
+                                <i class="fas fa-users"></i> Klanten
+                                <i class="fas fa-chevron-down text-xs"></i>
+                            </button>
+                            <div class="absolute hidden group-hover:block bg-white shadow-lg rounded-md top-full pt-2 z-50 min-w-[200px]">
+                                <button onclick="switchTab('customers')" id="nav-customers"
+                                        class="nav-button w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2">
+                                    <i class="fas fa-users"></i> Klanten
+                                </button>
+                                <button onclick="switchTab('orders')" id="nav-orders"
+                                        class="nav-button w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2">
+                                    <i class="fas fa-shopping-cart"></i> Orders
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Finance dropdown -->
+                        <div class="relative group">
+                            <button class="nav-button px-4 py-2 font-medium flex items-center gap-2">
+                                <i class="fas fa-euro-sign"></i> Financiën
+                                <i class="fas fa-chevron-down text-xs"></i>
+                            </button>
+                            <div class="absolute hidden group-hover:block bg-white shadow-lg rounded-md top-full pt-2 z-50 min-w-[200px]">
+                                <button onclick="switchTab('invoices')" id="nav-invoices"
+                                        class="nav-button w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2">
+                                    <i class="fas fa-file-invoice"></i> Facturen
+                                </button>
+                                <button onclick="switchTab('payments')" id="nav-payments"
+                                        class="nav-button w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2">
+                                    <i class="fas fa-credit-card"></i> Betalingen
+                                </button>
+                            </div>
+                        </div>
 
                         <!-- Subscriptions dropdown -->
                         <div class="relative group">
@@ -55,33 +122,54 @@
                             </div>
                         </div>
 
-                        <button onclick="switchTab('reports')" id="nav-reports" 
-                                class="nav-button px-4 py-2 font-medium flex items-center gap-2">
-                            <i class="fas fa-chart-bar"></i> Rapporten
-                        </button>
                     </div>
                 </div>
                 <div class="flex items-center space-x-3">
-                    <!-- Desktop buttons -->
-                    <button onclick="refreshCurrentView()" class="hidden md:flex btn-bamboo px-4 py-2 text-white items-center gap-2" title="Vernieuwen">
-                        <i class="fas fa-refresh"></i>
-                    </button>
-                    <button onclick="showUserSettings()" class="hidden md:flex btn-wood px-4 py-2 text-white items-center gap-2" title="Instellingen">
-                        <i class="fas fa-cog"></i>
-                    </button>
+                    <!-- Account dropdown -->
+                    <div class="relative group hidden xl:block">
+                        <button class="nav-button px-4 py-2 font-medium flex items-center gap-2">
+                            <i class="fas fa-user-circle text-green-700"></i>
+                            <span id="navUserName"></span>
+                            <i class="fas fa-chevron-down text-xs"></i>
+                        </button>
+                        <div class="absolute right-0 hidden group-hover:block bg-white shadow-lg rounded-md top-full pt-2 z-50 min-w-[200px]">
+                            <button onclick="switchTab('reports')" id="nav-reports" class="nav-button w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2">
+                                <i class="fas fa-chart-bar"></i> Rapporten
+                            </button>
+                            <div id="nav-users-wrapper" class="hidden">
+                                <button onclick="switchTab('users')" id="nav-users" class="nav-button w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2">
+                                    <i class="fas fa-user-cog"></i> Gebruikers
+                                </button>
+                            </div>
+                            <div class="border-t border-gray-100 my-1"></div>
+                            <button onclick="refreshCurrentView()" class="nav-button w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2">
+                                <i class="fas fa-refresh"></i> Verversen
+                            </button>
+                            <button onclick="showUserSettings()" class="nav-button w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2">
+                                <i class="fas fa-cog"></i> Instellingen
+                            </button>
+                            <div class="border-t border-gray-100 my-1"></div>
+                            <button onclick="handleLogout()" class="nav-button w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2 text-red-600">
+                                <i class="fas fa-sign-out-alt"></i> Uitloggen
+                            </button>
+                        </div>
+                    </div>
                     <!-- Mobile hamburger button -->
-                    <button onclick="toggleMobileMenu()" class="md:hidden btn-bamboo px-4 py-2 text-white flex items-center gap-2" id="hamburgerBtn" title="Menu">
+                    <button onclick="toggleMobileMenu()" class="xl:hidden btn-sm-bamboo flex items-center gap-2" id="hamburgerBtn" title="Menu">
                         <i class="fas fa-bars" id="hamburgerIcon"></i>
                     </button>
                 </div>
             </div>
             <!-- Mobile menu -->
-            <div id="mobileMenu" class="hidden md:hidden mt-4 space-y-2">
+            <div id="mobileMenu" class="space-y-2">
                 <button onclick="switchTab('dashboard'); toggleMobileMenu();" class="nav-button block w-full text-left px-4 py-2 flex items-center gap-2">
                     <i class="fas fa-chart-line"></i> Dashboard
                 </button>
                 <button onclick="switchTab('customers'); toggleMobileMenu();" class="nav-button block w-full text-left px-4 py-2 flex items-center gap-2">
                     <i class="fas fa-users"></i> Klanten
+                </button>
+                <button onclick="switchTab('orders'); toggleMobileMenu();" class="nav-button block w-full text-left px-4 py-2 flex items-center gap-2">
+                    <i class="fas fa-shopping-cart"></i> Orders
                 </button>
                 <button onclick="switchTab('invoices'); toggleMobileMenu();" class="nav-button block w-full text-left px-4 py-2 flex items-center gap-2">
                     <i class="fas fa-file-invoice"></i> Facturen
@@ -92,18 +180,25 @@
                 <button onclick="switchTab('subscriptions'); toggleMobileMenu();" class="nav-button block w-full text-left px-4 py-2 flex items-center gap-2">
                     <i class="fas fa-sync"></i> Abonnementen
                 </button>
-                <button onclick="switchTab('maintenance-plans'); toggleMobileMenu();" class="nav-button block w-full text-left px-4 py-2 flex items-center gap-2 pl-8">
+                <button onclick="switchTab('maintenance-plans'); toggleMobileMenu();" class="nav-button block w-full text-left px-4 py-2 flex items-center gap-2">
                     <i class="fas fa-layer-group"></i> Plannen
                 </button>
-                <button onclick="switchTab('reports'); toggleMobileMenu();" class="nav-button block w-full text-left px-4 py-2 flex items-center gap-2">
-                    <i class="fas fa-chart-bar"></i> Rapporten
-                </button>
                 <div class="border-t border-gray-200 pt-2 mt-2">
+                    <button onclick="switchTab('reports'); toggleMobileMenu();" id="nav-reports" class="nav-button block w-full text-left px-4 py-2 flex items-center gap-2">
+                        <i class="fas fa-chart-bar"></i> Rapporten
+                    </button>
+                    <button id="mobile-nav-users" onclick="switchTab('users'); toggleMobileMenu();" class="hidden nav-button block w-full text-left px-4 py-2 flex items-center gap-2">
+                        <i class="fas fa-user-cog"></i> Gebruikers
+                    </button>
+                    <div class="border-t border-gray-100 my-1"></div>
                     <button onclick="refreshCurrentView(); toggleMobileMenu();" class="nav-button block w-full text-left px-4 py-2 flex items-center gap-2">
                         <i class="fas fa-refresh"></i> Vernieuwen
                     </button>
                     <button onclick="showUserSettings(); toggleMobileMenu();" class="nav-button block w-full text-left px-4 py-2 flex items-center gap-2">
                         <i class="fas fa-cog"></i> Instellingen
+                    </button>
+                    <button onclick="handleLogout();" class="nav-button block w-full text-left px-4 py-2 flex items-center gap-2 text-red-600">
+                        <i class="fas fa-sign-out-alt"></i> Uitloggen
                     </button>
                 </div>
             </div>
@@ -183,7 +278,7 @@
     </div>
 
     <!-- Main Container -->
-    <div class="container mx-auto px-6 py-8 flex-grow">
+    <div class="w-full px-4 sm:px-6 py-5 flex-grow">
         <!-- Content Area -->
         <div id="content" class="page-transition">
             <div class="card-glass text-center py-12">
@@ -195,7 +290,7 @@
 
     <!-- Footer -->
     <footer id="appFooter" class="hidden bg-white border-t border-gray-200 mt-auto">
-        <div class="container mx-auto px-6 py-4">
+        <div class="w-full px-4 sm:px-6 py-3">
             <div class="flex items-center justify-between text-sm text-gray-600">
                 <p>© <span id="footerYear"></span> RiceDesk. Alle rechten voorbehouden.</p>
                 <span class="badge-premium badge-success text-xs text-nowrap">v2.0 Premium</span>
@@ -211,17 +306,22 @@
         </div>
     </div>
 
-    <script src="js/auth.js"></script>
+    </div><!-- /mainApp -->
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
     <script src="js/api.js"></script>
     <script src="js/ui.js"></script>
     <script src="js/dashboard.js"></script>
     <script src="js/customers.js"></script>
+    <script src="js/orders.js"></script>
     <script src="js/invoices.js"></script>
     <script src="js/payments.js"></script>
     <script src="js/maintenance-plans.js"></script>
     <script src="js/subscriptions.js"></script>
     <script src="js/reports.js"></script>
+    <script src="js/users.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>

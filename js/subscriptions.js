@@ -30,7 +30,7 @@ async function loadSubscriptions() {
                 <h2 class="text-2xl font-bold">Abonnementen</h2>
                 <button onclick="showCreateSubscription()" 
                         class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded">
-                    <i class="fas fa-plus"></i> Nieuw Abonnement
+                    <i class="fas fa-plus"></i> Nieuw
                 </button>
             </div>
         `;
@@ -60,8 +60,8 @@ async function loadSubscriptions() {
                         'bg-gray-100 text-gray-800';
 
                 const paymentStatusClass = 
-                    sub.paymentStatus === 'paid' ? 'bg-green-100 text-green-800' :
-                    sub.paymentStatus === 'overdue' ? 'bg-red-100 text-red-800' :
+                    sub.paymentStatus === 'invoiced' ? 'bg-green-100 text-green-800' :
+                    sub.paymentStatus === 'upcoming' ? 'bg-orange-100 text-orange-800' :
                     'bg-yellow-100 text-yellow-800';
 
                 const customerName = customerMap[sub.customerId] || sub.customerId;
@@ -83,7 +83,6 @@ async function loadSubscriptions() {
                 } : { quarterly: 0, halfyearly: 0, yearly: 0 };
 
                 const billingAmount = getBillingAmount(sub.monthlyPrice, billingFrequency, discounts);
-                const canAddPayment = sub.status === 'active' && sub.paymentStatus !== 'paid';
 
                 html += `
                     <tr class="hover:bg-gray-50">
@@ -112,7 +111,7 @@ async function loadSubscriptions() {
                             <span class="px-2 py-1 text-xs font-semibold rounded ${paymentStatusClass}">
                                 ${getPaymentStatusText(sub.paymentStatus)}
                             </span>
-                            ${sub.nextPaymentDue ? `<div class="text-xs text-gray-500 mt-1">Vervalt: ${formatDate(sub.nextPaymentDue)}</div>` : ''}
+                            ${sub.nextInvoiceDate ? `<div class="text-xs text-gray-500 mt-1">Volgende: ${formatDate(sub.nextInvoiceDate)}</div>` : ''}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm">
                             <span class="px-2 py-1 text-xs font-semibold rounded ${statusClass}">
@@ -120,12 +119,17 @@ async function loadSubscriptions() {
                             </span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            ${canAddPayment ? `
-                                <button onclick="showAddSubscriptionPayment('${sub.id}')" 
-                                        class="text-green-600 hover:text-green-900 mr-3" title="Betaling Toevoegen">
-                                    <i class="fas fa-credit-card"></i>
-                                </button>
-                            ` : ''}
+                            ${(() => {
+                                const alreadyInvoiced = sub.nextInvoiceDate && new Date(sub.nextInvoiceDate) > new Date();
+                                return alreadyInvoiced
+                                    ? `<button disabled class="text-gray-300 mr-3 cursor-not-allowed" title="Al gefactureerd tot ${formatDate(sub.nextInvoiceDate)}">
+                                           <i class="fas fa-file-invoice"></i>
+                                       </button>`
+                                    : `<button onclick="showGenerateInvoiceFromSubscription('${sub.id}')"
+                                               class="text-purple-600 hover:text-purple-900 mr-3" title="Factuur Genereren">
+                                           <i class="fas fa-file-invoice"></i>
+                                       </button>`;
+                            })()}
                             <button onclick="showSubscriptionPayments('${sub.id}')" 
                                     class="text-orange-600 hover:text-orange-900 mr-3" title="Betalingen">
                                 <i class="fas fa-history"></i>
@@ -258,26 +262,18 @@ function getSubscriptionForm(subscription = null, allSubscriptions = [], custome
                 </p>
             </div>
 
-            ${subscription && (sub.paymentStatus || sub.lastPaidDate || sub.nextPaymentDue) ? `
+            ${subscription && sub.paymentStatus ? `
                 <div class="bg-blue-50 p-4 rounded">
-                    <h4 class="font-semibold text-blue-900 mb-2">Betalingsinformatie</h4>
-                    <div class="grid grid-cols-3 gap-4 text-sm">
-                        ${sub.paymentStatus ? `
+                    <h4 class="font-semibold text-blue-900 mb-2">Factuurinformatie</h4>
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <div class="text-gray-600">Factuurstatus</div>
+                            <div class="font-medium">${getPaymentStatusText(sub.paymentStatus)}</div>
+                        </div>
+                        ${sub.nextInvoiceDate ? `
                             <div>
-                                <div class="text-gray-600">Status</div>
-                                <div class="font-medium">${getPaymentStatusText(sub.paymentStatus)}</div>
-                            </div>
-                        ` : ''}
-                        ${sub.lastPaidDate ? `
-                            <div>
-                                <div class="text-gray-600">Laatste betaling</div>
-                                <div class="font-medium">${formatDate(sub.lastPaidDate)}</div>
-                            </div>
-                        ` : ''}
-                        ${sub.nextPaymentDue ? `
-                            <div>
-                                <div class="text-gray-600">Volgende betaling</div>
-                                <div class="font-medium">${formatDate(sub.nextPaymentDue)}</div>
+                                <div class="text-gray-600">Volgende factuurdatum</div>
+                                <div class="font-medium">${formatDate(sub.nextInvoiceDate)}</div>
                             </div>
                         ` : ''}
                     </div>
@@ -672,9 +668,9 @@ function getBillingDiscountAmount(monthlyPrice, frequency, discounts = {}) {
 
 function getPaymentStatusText(status) {
     const statusTexts = {
-        'paid': 'Betaald',
-        'pending': 'Openstaand',
-        'overdue': 'Achterstallig'
+        'invoiced': 'Gefactureerd',
+        'upcoming': 'Binnenkort te factureren',
+        'open': 'Niet gefactureerd'
     };
     return statusTexts[status] || 'Onbekend';
 }
@@ -696,10 +692,6 @@ async function showSubscriptionPayments(subscriptionId) {
 
                 <div class="flex justify-between items-center">
                     <h4 class="text-lg font-semibold">Betalingsgeschiedenis</h4>
-                    <button onclick="showAddSubscriptionPayment('${subscriptionId}')" 
-                            class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded">
-                        <i class="fas fa-plus"></i> Nieuwe Betaling
-                    </button>
                 </div>
         `;
 
@@ -862,13 +854,92 @@ async function showAddSubscriptionPayment(subscriptionId) {
                     body: JSON.stringify(paymentData)
                 });
 
-                showToast('Betaling toegevoegd', 'success');
-                loadSubscriptions();
-            } catch (error) {
-                showToast('Fout: ' + error.message, 'error');
-            }
-        }, "Annuleren");
-    } catch (error) {
-        showToast('Fout bij laden formulier: ' + error.message, 'error');
-    }
-}
+                        showToast('Betaling toegevoegd', 'success');
+                                loadSubscriptions();
+                            } catch (error) {
+                                showToast('Fout: ' + error.message, 'error');
+                            }
+                        }, "Annuleren");
+                    } catch (error) {
+                        showToast('Fout bij laden formulier: ' + error.message, 'error');
+                    }
+                }
+
+                async function showGenerateInvoiceFromSubscription(subscriptionId) {
+                    const today = getTodayDate();
+                    const endOfMonth = (() => {
+                        const d = new Date();
+                        d.setMonth(d.getMonth() + 1, 0);
+                        return d.toISOString().split('T')[0];
+                    })();
+
+                    const formHtml = `
+                        <div class="space-y-4">
+                            <div class="bg-purple-50 border border-purple-200 rounded-lg p-3">
+                                <p class="text-sm text-purple-800">
+                                    <i class="fas fa-info-circle mr-2"></i>
+                                    Er wordt een factuur aangemaakt met één regel voor de opgegeven facturatieperiode.
+                                    De <strong>NextInvoiceDate</strong> van het abonnement wordt automatisch bijgewerkt.
+                                </p>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium mb-2">Periode van<span class="text-red-600 ml-1">*</span></label>
+                                    <input type="date" id="genPeriodStart" value="${today}"
+                                           class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-purple-500">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium mb-2">Periode tot<span class="text-red-600 ml-1">*</span></label>
+                                    <input type="date" id="genPeriodEnd" value="${endOfMonth}"
+                                           class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-purple-500">
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium mb-2">Vervaldatum</label>
+                                    <input type="date" id="genDueDate" value="${getDatePlusDays(14)}"
+                                           class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-purple-500">
+                                    <p class="text-xs text-gray-500 mt-1">Standaard: 14 dagen na vandaag</p>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium mb-2">BTW %</label>
+                                    <select id="genVatPercentage"
+                                            class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-purple-500">
+                                        <option value="0">0%</option>
+                                        <option value="9">9%</option>
+                                        <option value="21" selected>21%</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-2">Opmerkingen (optioneel)</label>
+                                <textarea id="genNotes" rows="2"
+                                          class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-purple-500"
+                                          placeholder="Extra toelichting op de factuur..."></textarea>
+                            </div>
+                        </div>
+                    `;
+
+                    createModal('Factuur Genereren vanuit Abonnement', formHtml, async () => {
+                        const periodStart    = document.getElementById('genPeriodStart').value;
+                        const periodEnd      = document.getElementById('genPeriodEnd').value;
+                        const dueDate        = document.getElementById('genDueDate').value;
+                        const vatPercentage  = parseFloat(document.getElementById('genVatPercentage').value) || 21;
+                        const notes          = document.getElementById('genNotes').value.trim();
+
+                        if (!periodStart || !periodEnd) throw new Error('Facturatieperiode is verplicht');
+                        if (new Date(periodEnd) < new Date(periodStart)) throw new Error('Einddatum moet na startdatum liggen');
+
+                        const body = { billingPeriodStart: periodStart, billingPeriodEnd: periodEnd, vatPercentage };
+                        if (dueDate) body.dueDate = dueDate;
+                        if (notes)   body.notes   = notes;
+
+                        const invoice = await apiRequest(`/subscriptions/${subscriptionId}/invoice`, {
+                            method: 'POST',
+                            body: JSON.stringify(body)
+                        });
+
+                        showToast(`Factuur ${invoice?.invoiceNumber || ''} aangemaakt`, 'success');
+                        loadSubscriptions();
+                    }, 'Factuur Genereren', 'sm');
+                }
