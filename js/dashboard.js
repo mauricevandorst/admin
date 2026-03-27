@@ -114,6 +114,10 @@ function calculateStats(customers, invoices, payments, subscriptions) {
     const monthlyRecurringRevenue = subscriptions?.filter(s => s.status === 'active')
         .reduce((sum, s) => sum + (s.price || 0), 0) || 0;
 
+    const collectionRate = totalInvoiceAmount > 0 ? (totalPaidFromPayments / totalInvoiceAmount) * 100 : 0;
+    const activeSubscriptionRate = totalSubscriptions > 0 ? (activeSubscriptions / totalSubscriptions) * 100 : 0;
+    const overduePressure = pendingAmount > 0 ? (overdueInvoices / Math.max(pendingInvoices + overdueInvoices, 1)) * 100 : 0;
+
     return {
         totalCustomers,
         totalInvoices,
@@ -129,229 +133,198 @@ function calculateStats(customers, invoices, payments, subscriptions) {
         activeSubscriptions,
         cancelledSubscriptions,
         expiringSubscriptions,
-        monthlyRecurringRevenue
+        monthlyRecurringRevenue,
+        collectionRate,
+        activeSubscriptionRate,
+        overduePressure
     };
 }
 
 function renderDashboard(stats, invoices, payments, subscriptions, customers) {
     const content = document.getElementById('content');
+    const now = new Date();
+    const greeting = now.getHours() < 12 ? 'Goedemorgen' : now.getHours() < 18 ? 'Goedemiddag' : 'Goedenavond';
+    const overdueAmount = stats.pendingAmount * (stats.overduePressure / 100);
 
     content.innerHTML = `
-        <div class="space-y-8 page-transition">
-            <!-- Premium Header -->
-            <div class="card-glass">
-                <h2 class="text-4xl font-bold text-gray-900">
-                    Dashboard
-                </h2>
-                <p class="text-gray-600 mt-2 font-medium">Overzicht van je RiceDesk administratie</p>
-            </div>
+        <div class="space-y-7 page-transition dashboard-saas">
+            <section class="dashboard-hero">
+                <div class="dashboard-hero__content">
+                    <p class="dashboard-eyebrow">${greeting}, team RiceDesk</p>
+                    <h2 class="dashboard-title">Realtime overzicht van cashflow en groei</h2>
+                    <p class="dashboard-subtitle">
+                        Laatste update op ${formatDate(now.toISOString())}. Focus op inning, terugkerende omzet en klantbehoud.
+                    </p>
+                </div>
+                <div class="dashboard-hero__actions">
+                    <button onclick="switchTab('invoices')" class="btn-bamboo">
+                        <i class="fas fa-file-invoice mr-2"></i>Facturen beheren
+                    </button>
+                    <button onclick="switchTab('reports')" class="btn-ghost">
+                        <i class="fas fa-chart-line mr-2"></i>Rapporten openen
+                    </button>
+                </div>
+            </section>
 
-            <!-- Main Stats Grid -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                ${createStatCard('Klanten', stats.totalCustomers, 'users', 'bamboo', 'Totaal aantal klanten', 'switchTab("customers")')}
-                ${createStatCard('Facturen', stats.totalInvoices, 'file-invoice', 'invoice', 'Totaal aantal facturen', 'switchTab("invoices")')}
-                ${createStatCard('Betalingen', stats.totalPayments, 'credit-card', 'financial', 'Totaal aantal betalingen', 'switchTab("payments")')}
-                ${createStatCard('Abonnementen', stats.totalSubscriptions, 'sync', 'sunset', 'Totaal aantal abonnementen', 'switchTab("subscriptions")')}
-            </div>
+            <section class="dashboard-kpi-grid">
+                ${createSaasMetricCard('Klanten', stats.totalCustomers, 'users', 'Actieve klantrelaties', 'switchTab("customers")')}
+                ${createSaasMetricCard('Facturen', stats.totalInvoices, 'file-invoice', `${stats.pendingInvoices + stats.overdueInvoices} vragen opvolging`, 'switchTab("invoices")')}
+                ${createSaasMetricCard('Betalingen', stats.totalPayments, 'credit-card', `Inningsratio ${formatPercent(stats.collectionRate)}`, 'switchTab("payments")')}
+                ${createSaasMetricCard('Abonnementen', stats.totalSubscriptions, 'sync', `${stats.activeSubscriptions} actief`, 'switchTab("subscriptions")')}
+            </section>
 
-            <!-- Alerts & Warnings -->
             ${renderAlerts(stats)}
 
-            <!-- Financial Overview -->
-            <div class="card-premium">
-                <h3 class="text-2xl font-bold mb-6 flex items-center">
-                    <div class="icon-financial mr-3">
-                        <i class="fas fa-euro-sign"></i>
+            <section class="grid grid-cols-1 xl:grid-cols-5 gap-6">
+                <div class="card-premium xl:col-span-3">
+                    <h3 class="text-2xl font-bold mb-6 flex items-center">
+                        <div class="icon-financial mr-3">
+                            <i class="fas fa-euro-sign"></i>
+                        </div>
+                        Financiele Performance
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="financial-card success">
+                            <p class="text-sm text-gray-600 mb-2 font-semibold">Totaal betaald</p>
+                            <p class="text-3xl font-bold bg-gradient-to-r from-green-600 to-green-500 bg-clip-text text-transparent">
+                                ${formatCurrency(stats.paidAmount)}
+                            </p>
+                            <p class="text-xs text-gray-500 mt-3">${stats.paidInvoices} facturen volledig betaald</p>
+                        </div>
+                        <div class="financial-card warning">
+                            <p class="text-sm text-gray-600 mb-2 font-semibold">Openstaand saldo</p>
+                            <p class="text-3xl font-bold bg-gradient-to-r from-yellow-600 to-yellow-500 bg-clip-text text-transparent">
+                                ${formatCurrency(stats.pendingAmount)}
+                            </p>
+                            <p class="text-xs text-gray-500 mt-3">${stats.pendingInvoices + stats.overdueInvoices} facturen nog open</p>
+                        </div>
+                        <div class="financial-card info">
+                            <p class="text-sm text-gray-600 mb-2 font-semibold">MRR</p>
+                            <p class="text-3xl font-bold bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">
+                                ${formatCurrency(stats.monthlyRecurringRevenue)}
+                            </p>
+                            <p class="text-xs text-gray-500 mt-3">${stats.activeSubscriptions} actieve abonnementen</p>
+                        </div>
                     </div>
-                    Financieel Overzicht
-                </h3>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div class="financial-card success">
-                        <p class="text-sm text-gray-600 mb-2 font-semibold">Totaal Betaald</p>
-                        <p class="text-4xl font-bold bg-gradient-to-r from-green-600 to-green-500 bg-clip-text text-transparent">
-                            ${formatCurrency(stats.paidAmount)}
-                        </p>
-                        <p class="text-xs text-gray-500 mt-3">${stats.paidInvoices} facturen betaald</p>
-                    </div>
-                    <div class="financial-card warning">
-                        <p class="text-sm text-gray-600 mb-2 font-semibold">Openstaand</p>
-                        <p class="text-4xl font-bold bg-gradient-to-r from-yellow-600 to-yellow-500 bg-clip-text text-transparent">
-                            ${formatCurrency(stats.pendingAmount)}
-                        </p>
-                        <p class="text-xs text-gray-500 mt-3">${stats.pendingInvoices} facturen open</p>
-                    </div>
-                    <div class="financial-card info">
-                        <p class="text-sm text-gray-600 mb-2 font-semibold">MRR</p>
-                        <p class="text-4xl font-bold bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">
-                            ${formatCurrency(stats.monthlyRecurringRevenue)}
-                        </p>
-                        <p class="text-xs text-gray-500 mt-3">${stats.activeSubscriptions} actieve abonnementen</p>
+                    <div class="dashboard-meter-list mt-6">
+                        ${createMeterRow('Inningsratio', stats.collectionRate, 'success')}
+                        ${createMeterRow('Actieve abonnementen', stats.activeSubscriptionRate, 'info')}
+                        ${createMeterRow('Achterstanddruk', stats.overduePressure, 'warning')}
                     </div>
                 </div>
-            </div>
 
-            <!-- Invoice & Subscription Status -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- Invoice Status -->
+                <div class="card-premium xl:col-span-2">
+                    <h3 class="text-xl font-bold mb-5 flex items-center">
+                        <div class="icon-sky mr-3">
+                            <i class="fas fa-bullseye"></i>
+                        </div>
+                        Focus Vandaag
+                    </h3>
+                    <div class="dashboard-focus-list">
+                        <div class="dashboard-focus-item">
+                            <p class="dashboard-focus-title">Achterstallig risico</p>
+                            <p class="dashboard-focus-value">${formatCurrency(overdueAmount)}</p>
+                            <p class="dashboard-focus-note">${stats.overdueInvoices} facturen met directe prioriteit</p>
+                        </div>
+                        <div class="dashboard-focus-item">
+                            <p class="dashboard-focus-title">Openstaande facturen</p>
+                            <p class="dashboard-focus-value">${stats.pendingInvoices + stats.overdueInvoices}</p>
+                            <p class="dashboard-focus-note">Plan opvolging voor snellere inning</p>
+                        </div>
+                        <div class="dashboard-focus-item">
+                            <p class="dashboard-focus-title">Verloopt binnen 30 dagen</p>
+                            <p class="dashboard-focus-value">${stats.expiringSubscriptions}</p>
+                            <p class="dashboard-focus-note">Behoud omzet via proactieve verlenging</p>
+                        </div>
+                    </div>
+                    <button onclick="switchTab('subscriptions')" class="btn-wood w-full mt-6">
+                        <i class="fas fa-arrow-trend-up mr-2"></i>Werk retentie bij
+                    </button>
+                </div>
+            </section>
+
+            <section class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div class="card-premium">
                     <h3 class="text-xl font-bold mb-6 flex items-center">
                         <div class="icon-invoice mr-3">
                             <i class="fas fa-file-invoice"></i>
                         </div>
-                        Facturen Status
+                        Factuur Pipeline
                     </h3>
-                    <div class="space-y-4">
-                        <div class="flex items-center justify-between p-4 bg-green-50 rounded-xl hover-lift">
-                            <div class="flex items-center">
-                                <div class="icon-bamboo mr-3">
-                                    <i class="fas fa-check-circle"></i>
-                                </div>
-                                <span class="font-semibold">Betaald</span>
-                            </div>
-                            <span class="text-3xl font-bold bg-gradient-to-r from-green-600 to-green-500 bg-clip-text text-transparent">
-                                ${stats.paidInvoices}
-                            </span>
-                        </div>
-                        <div class="flex items-center justify-between p-4 bg-blue-50 rounded-xl hover-lift">
-                            <div class="flex items-center">
-                                <div class="icon-sky mr-3">
-                                    <i class="fas fa-chart-pie"></i>
-                                </div>
-                                <span class="font-semibold">Gedeeltelijk Betaald</span>
-                            </div>
-                            <span class="text-3xl font-bold bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">
-                                ${stats.partiallyPaidInvoices}
-                            </span>
-                        </div>
-                        <div class="flex items-center justify-between p-4 bg-yellow-50 rounded-xl hover-lift">
-                            <div class="flex items-center">
-                                <div class="icon-sunset mr-3">
-                                    <i class="fas fa-clock"></i>
-                                </div>
-                                <span class="font-semibold">Openstaand</span>
-                            </div>
-                            <span class="text-3xl font-bold bg-gradient-to-r from-yellow-600 to-yellow-500 bg-clip-text text-transparent">
-                                ${stats.pendingInvoices}
-                            </span>
-                        </div>
-                        <div class="flex items-center justify-between p-4 bg-red-50 rounded-xl hover-lift">
-                            <div class="flex items-center">
-                                <div class="icon-rose mr-3">
-                                    <i class="fas fa-exclamation-triangle"></i>
-                                </div>
-                                <span class="font-semibold">Achterstallig</span>
-                            </div>
-                            <span class="text-3xl font-bold bg-gradient-to-r from-red-600 to-red-500 bg-clip-text text-transparent">
-                                ${stats.overdueInvoices}
-                            </span>
-                        </div>
+                    <div class="dashboard-pipeline">
+                        ${createPipelineRow('Betaald', stats.paidInvoices, 'success')}
+                        ${createPipelineRow('Gedeeltelijk betaald', stats.partiallyPaidInvoices, 'info')}
+                        ${createPipelineRow('Openstaand', stats.pendingInvoices, 'warning')}
+                        ${createPipelineRow('Achterstallig', stats.overdueInvoices, 'danger')}
                     </div>
                 </div>
 
-                <!-- Subscription Status -->
                 <div class="card-premium">
                     <h3 class="text-xl font-bold mb-6 flex items-center">
                         <div class="icon-rose mr-3">
                             <i class="fas fa-sync"></i>
                         </div>
-                        Abonnementen Status
+                        Abonnementen Gezondheid
                     </h3>
-                    <div class="space-y-4">
-                        <div class="flex items-center justify-between p-4 bg-green-50 rounded-xl hover-lift">
-                            <div class="flex items-center">
-                                <div class="icon-bamboo mr-3">
-                                    <i class="fas fa-check-circle"></i>
-                                </div>
-                                <span class="font-semibold">Actief</span>
-                            </div>
-                            <span class="text-3xl font-bold bg-gradient-to-r from-green-600 to-green-500 bg-clip-text text-transparent">
-                                ${stats.activeSubscriptions}
-                            </span>
-                        </div>
-                        <div class="flex items-center justify-between p-4 bg-orange-50 rounded-xl hover-lift">
-                            <div class="flex items-center">
-                                <div class="icon-sunset mr-3">
-                                    <i class="fas fa-hourglass-half"></i>
-                                </div>
-                                <span class="font-semibold">Verloopt binnenkort</span>
-                            </div>
-                            <span class="text-3xl font-bold bg-gradient-to-r from-orange-600 to-orange-500 bg-clip-text text-transparent">
-                                ${stats.expiringSubscriptions}
-                            </span>
-                        </div>
-                        <div class="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover-lift">
-                            <div class="flex items-center">
-                                <div class="icon-wood mr-3">
-                                    <i class="fas fa-ban"></i>
-                                </div>
-                                <span class="font-semibold">Geannuleerd</span>
-                            </div>
-                            <span class="text-3xl font-bold text-gray-600">
-                                ${stats.cancelledSubscriptions}
-                            </span>
-                        </div>
+                    <div class="dashboard-pipeline">
+                        ${createPipelineRow('Actief', stats.activeSubscriptions, 'success')}
+                        ${createPipelineRow('Verloopt binnenkort', stats.expiringSubscriptions, 'warning')}
+                        ${createPipelineRow('Geannuleerd', stats.cancelledSubscriptions, 'neutral')}
                     </div>
                 </div>
-            </div>
+            </section>
 
-            <!-- Recent Activity -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <section class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 ${renderRecentInvoices(invoices, customers)}
                 ${renderRecentPayments(payments)}
+            </section>
+        </div>
+    `;
+}
+
+function createSaasMetricCard(title, value, icon, subtitle, onClickAction = null) {
+    return `
+        <button class="saas-kpi-card" ${onClickAction ? `onclick='${onClickAction}'` : ''}>
+            <div class="saas-kpi-icon">
+                <i class="fas fa-${icon}"></i>
+            </div>
+            <div class="saas-kpi-content">
+                <p class="saas-kpi-title">${title}</p>
+                <p class="saas-kpi-value">${value}</p>
+                <p class="saas-kpi-subtitle">${subtitle}</p>
+            </div>
+            <i class="fas fa-arrow-right saas-kpi-arrow"></i>
+        </button>
+    `;
+}
+
+function createMeterRow(label, percent, type) {
+    const safePercent = Math.max(0, Math.min(100, percent || 0));
+
+    return `
+        <div>
+            <div class="flex items-center justify-between text-sm mb-2">
+                <span class="font-semibold text-gray-700">${label}</span>
+                <span class="text-gray-500">${formatPercent(safePercent)}</span>
+            </div>
+            <div class="dashboard-meter-track">
+                <div class="dashboard-meter-fill ${type}" style="width: ${safePercent}%"></div>
             </div>
         </div>
     `;
 }
 
-function createStatCard(title, value, icon, color, subtitle, onClickAction = null) {
-    const iconColors = {
-        bamboo: 'icon-bamboo',
-        rose: 'icon-rose',
-        sunset: 'icon-sunset',
-        wood: 'icon-wood',
-        sky: 'icon-sky',
-        financial: 'icon-financial',
-        invoice: 'icon-invoice'
-    };
-
-    const buttonColors = {
-        bamboo: 'bamboo',
-        rose: 'rose',
-        sunset: 'sunset',
-        wood: 'wood',
-        financial: 'financial',
-        invoice: 'invoice'
-    };
-
-    const gradientColors = {
-        bamboo: 'var(--gradient-bamboo)',
-        rose: 'var(--gradient-rose)',
-        sunset: 'var(--gradient-sunset)',
-        wood: 'var(--gradient-wood)',
-        sky: 'linear-gradient(135deg, #4FC3F7 0%, #03A9F4 100%)',
-        financial: 'var(--gradient-financial)',
-        invoice: 'var(--gradient-invoice)'
-    };
-
-    const addButton = onClickAction ? `
-        <button onclick='${onClickAction}' 
-                class="btn-quick-action-premium ${buttonColors[color] || 'bamboo'}"
-                title="Ga naar ${title}">
-            <i class="fas fa-arrow-right"></i>
-        </button>
-    ` : '';
-
+function createPipelineRow(label, value, type) {
     return `
-        <div class="stat-card-premium">
-            ${addButton}
-            <div class="stat-icon ${iconColors[color] || 'icon-bamboo'}" style="background: ${gradientColors[color] || 'var(--gradient-bamboo)'};">
-                <i class="fas fa-${icon}"></i>
-            </div>
-            <div class="stat-label">${title}</div>
-            <div class="stat-value" style="background: ${gradientColors[color] || 'var(--gradient-bamboo)'}; -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">${value}</div>
-            <div class="text-xs text-gray-500 mt-2">${subtitle}</div>
+        <div class="dashboard-pipeline-item ${type}">
+            <p class="dashboard-pipeline-label">${label}</p>
+            <p class="dashboard-pipeline-value">${value}</p>
         </div>
     `;
+}
+
+function formatPercent(value) {
+    return `${Math.round(value || 0)}%`;
 }
 
 function renderAlerts(stats) {
@@ -398,7 +371,7 @@ function renderAlerts(stats) {
                         <i class="fas fa-check-circle"></i>
                     </div>
                     <div>
-                        <h3 class="font-bold text-lg">Alles loopt goed!</h3>
+                        <h3 class="font-bold text-lg">Alles loopt goed</h3>
                         <p class="text-sm mt-1 opacity-90">Er zijn geen actiepunten die aandacht vereisen.</p>
                     </div>
                 </div>
@@ -408,11 +381,11 @@ function renderAlerts(stats) {
 
     return `
         <div class="space-y-4">
-            <h3 class="text-2xl font-bold flex items-center">
+            <h3 class="text-xl font-bold flex items-center">
                 <div class="icon-sunset mr-3">
                     <i class="fas fa-bell"></i>
                 </div>
-                Actiepunten & Waarschuwingen
+                Actiepunten en Waarschuwingen
             </h3>
             ${alerts.map(alert => {
                 const configs = {
@@ -464,15 +437,15 @@ function renderRecentInvoices(invoices, customers) {
 
     return `
         <div class="card-premium">
-            <h3 class="text-xl font-bold mb-6 flex items-center justify-between">
+            <h3 class="text-xl font-bold mb-6 flex items-center justify-between dashboard-recent-header">
                 <span class="flex items-center">
                     <div class="icon-invoice mr-3">
                         <i class="fas fa-file-invoice"></i>
                     </div>
                     Recente Facturen
                 </span>
-                <button onclick="switchTab('invoices')" class="btn-ghost text-sm">
-                    Bekijk alle →
+                <button onclick="switchTab('invoices')" class="btn-ghost text-sm dashboard-recent-all-btn">
+                    Bekijk alle <i class="fas fa-arrow-right ml-1"></i>
                 </button>
             </h3>
             <div class="space-y-3">
@@ -489,25 +462,27 @@ function renderRecentInvoices(invoices, customers) {
                     const customerName = customer?.business?.displayName || customer?.business?.name || invoice.customerId || 'N/A';
 
                     return `
-                        <div class="flex items-center justify-between p-4 hover:bg-gray-50 rounded-xl transition-all hover-lift">
-                            <div class="flex-1">
+                        <div class="p-4 hover:bg-gray-50 rounded-xl transition-all hover-lift dashboard-recent-row flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                            <div class="flex-1 min-w-0">
                                 <div class="flex items-center gap-2 mb-1">
                                     <i class="fas fa-file-invoice text-gray-400 text-sm"></i>
-                                    <p class="font-semibold text-gray-900">${invoice.invoiceNumber}</p>
+                                    <p class="font-semibold text-gray-900 break-words">${invoice.invoiceNumber}</p>
                                 </div>
                                 <div class="flex items-center gap-2">
                                     <i class="fas fa-user text-gray-400 text-xs"></i>
-                                    <p class="text-xs text-gray-500">${customerName}</p>
+                                    <p class="text-xs text-gray-500 break-words">${customerName}</p>
                                 </div>
                             </div>
-                            <div class="text-right mr-4">
-                                <p class="font-bold text-lg">${formatCurrency(invoice.totalAmount)}</p>
-                                <p class="text-xs text-gray-500 mt-1">${formatDate(invoice.invoiceDate)}</p>
+                            <div class="flex items-center justify-between gap-3 md:justify-end md:gap-4">
+                                <div class="text-left md:text-right dashboard-recent-meta">
+                                    <p class="font-bold text-lg">${formatCurrency(invoice.totalAmount)}</p>
+                                    <p class="text-xs text-gray-500 mt-1">${formatDate(invoice.invoiceDate)}</p>
+                                </div>
+                                <span class="badge-premium ${config.badge} dashboard-recent-badge shrink-0">
+                                    <i class="fas fa-${config.icon}"></i>
+                                    ${config.label}
+                                </span>
                             </div>
-                            <span class="badge-premium ${config.badge}">
-                                <i class="fas fa-${config.icon}"></i>
-                                ${config.label}
-                            </span>
                         </div>
                     `;
                 }).join('')}
@@ -535,30 +510,30 @@ function renderRecentPayments(payments) {
 
     return `
         <div class="card-premium">
-            <h3 class="text-xl font-bold mb-6 flex items-center justify-between">
+            <h3 class="text-xl font-bold mb-6 flex items-center justify-between dashboard-recent-header">
                 <span class="flex items-center">
                     <div class="icon-financial mr-3">
                         <i class="fas fa-credit-card"></i>
                     </div>
                     Recente Betalingen
                 </span>
-                <button onclick="switchTab('payments')" class="btn-ghost text-sm">
-                    Bekijk alle →
+                <button onclick="switchTab('payments')" class="btn-ghost text-sm dashboard-recent-all-btn">
+                    Bekijk alle <i class="fas fa-arrow-right ml-1"></i>
                 </button>
             </h3>
             <div class="space-y-3">
                 ${recent.map(payment => `
-                    <div class="flex items-center justify-between p-4 hover:bg-gray-50 rounded-xl transition-all hover-lift">
-                        <div class="flex-1">
+                    <div class="p-4 hover:bg-gray-50 rounded-xl transition-all hover-lift dashboard-recent-row flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                        <div class="flex-1 min-w-0">
                             <div class="flex items-center gap-2 mb-1">
                                 <i class="fas fa-file-invoice text-gray-400 text-sm"></i>
-                                <p class="font-semibold text-gray-900">${payment.invoiceNumber || 'N/A'}</p>
+                                <p class="font-semibold text-gray-900 break-words">${payment.invoiceNumber || 'N/A'}</p>
                             </div>
                             <p class="text-xs text-gray-500">${formatDate(payment.date)}</p>
                         </div>
-                        <div class="text-right">
+                        <div class="text-left md:text-right dashboard-recent-meta">
                             <p class="font-bold text-green-600 text-lg">${formatCurrency(payment.amount)}</p>
-                            <div class="flex items-center justify-end gap-1 mt-1">
+                            <div class="flex items-center justify-end gap-1 mt-1 dashboard-recent-method">
                                 <i class="fas fa-${payment.method === 'bank_transfer' ? 'university' : payment.method === 'credit_card' ? 'credit-card' : payment.method === 'cash' ? 'money-bill-wave' : 'wallet'} text-xs text-gray-400"></i>
                                 <p class="text-xs text-gray-500">${payment.method === 'bank_transfer' ? 'Bankoverschrijving' : payment.method === 'credit_card' ? 'Creditcard' : payment.method === 'cash' ? 'Contant' : payment.method || 'N/A'}</p>
                             </div>
