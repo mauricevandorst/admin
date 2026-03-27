@@ -1136,11 +1136,7 @@ async function downloadInvoicePdf(invoiceId) {
         };
         const statusLabel = statusLabels[invoice.status] || 'Openstaand';
 
-        const badgeColor = {
-            paid: 'background:#dcfce7;color:#166534;',
-            partially_paid: 'background:#dbeafe;color:#1e40af;',
-            overdue: 'background:#fee2e2;color:#991b1b;'
-        }[invoice.status] || 'background:#fef9c3;color:#854d0e;';
+        const badgeColor = 'background:#f3f4f6;color:#111827;';
 
         const itemsHtml = (invoice.items || []).map(item => `
             <tr>
@@ -1162,19 +1158,19 @@ async function downloadInvoicePdf(invoiceId) {
                 <tr>
                     <td style="padding:4px 12px;border-bottom:1px solid #e5e7eb;">${formatDate(p.date)}</td>
                     <td style="padding:4px 12px;border-bottom:1px solid #e5e7eb;">${p.method || 'N/A'}</td>
-                    <td style="padding:4px 12px;border-bottom:1px solid #e5e7eb;text-align:right;color:#16a34a;font-weight:600;">${formatCurrency(p.amount)}</td>
+                    <td style="padding:4px 12px;border-bottom:1px solid #e5e7eb;text-align:right;font-weight:600;">${formatCurrency(p.amount)}</td>
                 </tr>`).join('')
             : '';
 
         const container = document.createElement('div');
-        container.style.cssText = 'position:fixed;left:0;top:0;width:794px;background:#fff;z-index:-9999;pointer-events:none;';
+        container.style.cssText = 'position:fixed;left:-99999px;top:0;width:794px;background:#fff;pointer-events:none;';
         container.innerHTML = `
             <div style="font-family:Arial,sans-serif;font-size:13px;color:#111827;background:#fff;padding:40px;">
 
                 <!-- Header -->
                 <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:40px;">
                     <div>
-                        <div style="font-size:28px;font-weight:700;color:#166534;">${companyName}</div>
+                        <div style="font-size:28px;font-weight:700;color:#111827;">${companyName}</div>
                         ${companyAddress ? `
                         <div style="font-size:12px;color:#6b7280;margin-top:4px;">
                             ${companyAddress.street ? `<div>${companyAddress.street} ${companyAddress.houseNumber || ''}</div>` : ''}
@@ -1245,10 +1241,10 @@ async function downloadInvoicePdf(invoiceId) {
                             <td style="padding:10px 0 5px;border-top:2px solid #111827;font-size:16px;font-weight:700;text-align:right;">${formatCurrency(invoice.totalAmount)}</td>
                         </tr>
                         ${totalPaid > 0 ? `
-                        <tr><td style="padding:5px 0;color:#16a34a;">Betaald</td><td style="padding:5px 0;text-align:right;font-weight:600;color:#16a34a;">${formatCurrency(totalPaid)}</td></tr>
+                        <tr><td style="padding:5px 0;">Betaald</td><td style="padding:5px 0;text-align:right;font-weight:600;">${formatCurrency(totalPaid)}</td></tr>
                         <tr>
-                            <td style="padding:5px 0;font-weight:700;${remainingAmount > 0 ? 'color:#ca8a04;' : 'color:#16a34a;'}">Openstaand</td>
-                            <td style="padding:5px 0;text-align:right;font-weight:700;${remainingAmount > 0 ? 'color:#ca8a04;' : 'color:#16a34a;'}">${formatCurrency(remainingAmount)}</td>
+                            <td style="padding:5px 0;font-weight:700;">Openstaand</td>
+                            <td style="padding:5px 0;text-align:right;font-weight:700;">${formatCurrency(remainingAmount)}</td>
                         </tr>` : ''}
                     </table>
                 </div>
@@ -1283,18 +1279,37 @@ async function downloadInvoicePdf(invoiceId) {
             </div>
         `;
 
-        document.body.appendChild(container);
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) {
+            showToast('Pop-up geblokkeerd. Sta pop-ups toe voor deze site.', 'error');
+            return;
+        }
 
-        await html2pdf().set({
-            margin: 0,
-            filename: `Factuur-${invoice.invoiceNumber || invoiceId}.pdf`,
-            image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2, useCORS: true, logging: false, scrollX: 0, scrollY: 0 },
-            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-        }).from(container).save();
-
-        document.body.removeChild(container);
-        showToast('Factuur gedownload', 'success');
+        printWindow.document.write(`<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <title>Factuur ${invoice.invoiceNumber || invoiceId}</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; padding: 0; background: #fff; }
+        @media print {
+            @page { margin: 0; size: A4 portrait; }
+        }
+    </style>
+</head>
+<body>
+    ${container.innerHTML}
+    <script>
+        window.addEventListener('load', function () {
+            window.print();
+            window.addEventListener('afterprint', function () { window.close(); });
+        });
+    <\/script>
+</body>
+</html>`);
+        printWindow.document.close();
+        showToast('Factuur wordt geopend voor downloaden...', 'success');
     } catch (error) {
         showToast('Fout bij genereren factuur: ' + error.message, 'error');
     }

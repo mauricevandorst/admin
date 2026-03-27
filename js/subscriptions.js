@@ -46,7 +46,7 @@ async function loadSubscriptions() {
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Plan</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Prijs</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Frequentie</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Betaling Status</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Facturatie</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                         <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Acties</th>
                     </tr>

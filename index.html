@@ -1,24 +1,30 @@
 <!DOCTYPE html>
 <html lang="nl">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RiceDesk - Admin Portal</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎋</text></svg>">
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎋</text></svg>">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/bamboo-theme.css">
 </head>
+
 <body class="flex flex-col min-h-screen">
 
     <!-- Login Screen -->
-    <div id="loginScreen" class="hidden fixed inset-0 z-[99999] flex items-center justify-center" style="background: linear-gradient(135deg, #1a2e1a 0%, #2d5a27 50%, #1a2e1a 100%);">
+    <div id="loginScreen" class="hidden fixed inset-0 z-[99999] flex items-center justify-center"
+        style="background: linear-gradient(135deg, #1a2e1a 0%, #2d5a27 50%, #1a2e1a 100%);">
         <div class="w-full max-w-sm px-4">
             <div class="bg-white rounded-2xl shadow-2xl overflow-hidden">
                 <div class="p-8">
                     <div class="text-center mb-8">
                         <div class="text-5xl mb-3">🎋</div>
-                        <h1 class="text-3xl font-bold" style="background: var(--gradient-bamboo); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">RiceDesk</h1>
+                        <h1 class="text-3xl font-bold"
+                            style="background: var(--gradient-bamboo); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                            RiceDesk</h1>
                         <p class="text-gray-500 text-sm mt-1">Beheerportaal</p>
                     </div>
                     <form onsubmit="handleLogin(event)" class="space-y-4">
@@ -27,9 +33,8 @@
                             <div class="relative">
                                 <i class="fas fa-user absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
                                 <input type="text" id="loginUsername" autocomplete="username"
-                                       class="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:border-transparent"
-                                       style="--tw-ring-color: #4a7c59;"
-                                       placeholder="Gebruikersnaam">
+                                    class="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:border-transparent"
+                                    style="--tw-ring-color: #4a7c59;" placeholder="Gebruikersnaam">
                             </div>
                         </div>
                         <div>
@@ -37,14 +42,14 @@
                             <div class="relative">
                                 <i class="fas fa-lock absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
                                 <input type="password" id="loginPassword" autocomplete="current-password"
-                                       class="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:border-transparent"
-                                       placeholder="Wachtwoord">
+                                    class="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:border-transparent"
+                                    placeholder="Wachtwoord">
                             </div>
                         </div>
                         <p id="loginError" class="hidden text-red-600 text-sm font-medium"></p>
                         <button type="submit" id="loginBtn"
-                                class="w-full py-2.5 rounded-xl text-white font-semibold flex items-center justify-center gap-2 transition-opacity hover:opacity-90"
-                                style="background: var(--gradient-bamboo);">
+                            class="w-full py-2.5 rounded-xl text-white font-semibold flex items-center justify-center gap-2 transition-opacity hover:opacity-90"
+                            style="background: var(--gradient-bamboo);">
                             <i class="fas fa-sign-in-alt mr-2"></i>Inloggen
                         </button>
                     </form>
@@ -55,260 +60,287 @@
 
     <!-- Main Application (hidden until logged in) -->
     <div id="mainApp" class="hidden flex flex-col min-h-screen">
-    <!-- Navigation -->
-    <nav class="bamboo-nav">
-        <div class="w-full px-4 sm:px-6 py-3">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center space-x-8">
-                    <h1 class="text-2xl font-bold flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity" onclick="switchTab('dashboard')" title="Terug naar Dashboard">
-                        <span class="text-3xl">🎋</span>
-                        <span style="background: var(--gradient-bamboo); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">RiceDesk</span>
-                    </h1>
-                    <div class="hidden xl:flex space-x-2">
-                        <button onclick="switchTab('dashboard')" id="nav-dashboard" 
+        <!-- Navigation -->
+        <nav class="bamboo-nav">
+            <div class="w-full px-4 sm:px-6 py-3">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-8">
+                        <h1 class="text-2xl font-bold flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+                            onclick="switchTab('dashboard')" title="Terug naar Dashboard">
+                            <span class="text-3xl">🎋</span>
+                            <span
+                                style="background: var(--gradient-bamboo); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">RiceDesk</span>
+                        </h1>
+                        <div class="hidden xl:flex space-x-2">
+                            <button onclick="switchTab('dashboard')" id="nav-dashboard"
                                 class="nav-button px-4 py-2 font-medium flex items-center gap-2">
-                            <i class="fas fa-chart-line"></i> Dashboard
-                        </button>
-                        <!-- Klanten dropdown -->
-                        <div class="relative group">
-                            <button class="nav-button px-4 py-2 font-medium flex items-center gap-2">
-                                <i class="fas fa-users"></i> Klanten
-                                <i class="fas fa-chevron-down text-xs"></i>
+                                <i class="fas fa-chart-line"></i> Dashboard
                             </button>
-                            <div class="absolute hidden group-hover:block bg-white shadow-lg rounded-md top-full pt-2 z-50 min-w-[200px]">
-                                <button onclick="switchTab('customers')" id="nav-customers"
-                                        class="nav-button w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2">
-                                    <i class="fas fa-users"></i> Klanten
-                                </button>
-                                <button onclick="switchTab('orders')" id="nav-orders"
-                                        class="nav-button w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2">
+
+                            <!-- Klanten dropdown -->
+                            <div class="relative group">
+                                <button class="nav-button px-4 py-2 font-medium flex items-center gap-2">
                                     <i class="fas fa-shopping-cart"></i> Orders
+                                    <i class="fas fa-chevron-down text-xs"></i>
                                 </button>
-                            </div>
-                        </div>
-                        <!-- Finance dropdown -->
-                        <div class="relative group">
-                            <button class="nav-button px-4 py-2 font-medium flex items-center gap-2">
-                                <i class="fas fa-euro-sign"></i> Financiën
-                                <i class="fas fa-chevron-down text-xs"></i>
-                            </button>
-                            <div class="absolute hidden group-hover:block bg-white shadow-lg rounded-md top-full pt-2 z-50 min-w-[200px]">
-                                <button onclick="switchTab('invoices')" id="nav-invoices"
+                                <div
+                                    class="absolute hidden group-hover:block bg-white shadow-lg rounded-md top-full pt-2 z-50 min-w-[200px]">
+                                    <button onclick="switchTab('orders')" id="nav-orders"
                                         class="nav-button w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2">
-                                    <i class="fas fa-file-invoice"></i> Facturen
-                                </button>
-                                <button onclick="switchTab('payments')" id="nav-payments"
+                                        <i class="fas fa-shopping-cart"></i> Orders
+                                    </button>
+                                    <button onclick="switchTab('customers')" id="nav-customers"
                                         class="nav-button w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2">
-                                    <i class="fas fa-credit-card"></i> Betalingen
-                                </button>
+                                        <i class="fas fa-users"></i> Klanten
+                                    </button>
+                                </div>
                             </div>
-                        </div>
+                            <!-- Finance dropdown -->
+                            <div class="relative group">
+                                <button class="nav-button px-4 py-2 font-medium flex items-center gap-2">
+                                    <i class="fas fa-euro-sign"></i> Financiën
+                                    <i class="fas fa-chevron-down text-xs"></i>
+                                </button>
+                                <div
+                                    class="absolute hidden group-hover:block bg-white shadow-lg rounded-md top-full pt-2 z-50 min-w-[200px]">
+                                    <button onclick="switchTab('invoices')" id="nav-invoices"
+                                        class="nav-button w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2">
+                                        <i class="fas fa-file-invoice"></i> Facturen
+                                    </button>
+                                    <button onclick="switchTab('payments')" id="nav-payments"
+                                        class="nav-button w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2">
+                                        <i class="fas fa-credit-card"></i> Betalingen
+                                    </button>
+                                </div>
+                            </div>
 
-                        <!-- Subscriptions dropdown -->
-                        <div class="relative group">
-                            <button class="nav-button px-4 py-2 font-medium flex items-center gap-2">
-                                <i class="fas fa-sync"></i> Abonnementen
-                                <i class="fas fa-chevron-down text-xs"></i>
-                            </button>
-                            <div class="absolute hidden group-hover:block bg-white shadow-lg rounded-md top-full pt-2 z-50 min-w-[200px]">
-                                <button onclick="switchTab('subscriptions')" id="nav-subscriptions" 
-                                        class="nav-button w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2">
+                            <!-- Subscriptions dropdown -->
+                            <div class="relative group">
+                                <button class="nav-button px-4 py-2 font-medium flex items-center gap-2">
                                     <i class="fas fa-sync"></i> Abonnementen
+                                    <i class="fas fa-chevron-down text-xs"></i>
                                 </button>
-                                <button onclick="switchTab('maintenance-plans')" id="nav-maintenance-plans" 
+                                <div
+                                    class="absolute hidden group-hover:block bg-white shadow-lg rounded-md top-full pt-2 z-50 min-w-[200px]">
+                                    <button onclick="switchTab('subscriptions')" id="nav-subscriptions"
                                         class="nav-button w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2">
-                                    <i class="fas fa-layer-group"></i> Plannen
+                                        <i class="fas fa-sync"></i> Abonnementen
+                                    </button>
+                                    <button onclick="switchTab('maintenance-plans')" id="nav-maintenance-plans"
+                                        class="nav-button w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2">
+                                        <i class="fas fa-layer-group"></i> Plannen
+                                    </button>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <!-- Account dropdown -->
+                        <div class="relative group hidden xl:block">
+                            <button class="nav-button px-4 py-2 font-medium flex items-center gap-2">
+                                <i class="fas fa-user-circle text-green-700"></i>
+                                <span id="navUserName"></span>
+                                <i class="fas fa-chevron-down text-xs"></i>
+                            </button>
+                            <div
+                                class="absolute right-0 hidden group-hover:block bg-white shadow-lg rounded-md top-full pt-2 z-50 min-w-[200px]">
+                                <button onclick="switchTab('reports')" id="nav-reports"
+                                    class="nav-button w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2">
+                                    <i class="fas fa-chart-bar"></i> Rapporten
+                                </button>
+                                <div id="nav-users-wrapper" class="hidden">
+                                    <button onclick="switchTab('users')" id="nav-users"
+                                        class="nav-button w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2">
+                                        <i class="fas fa-user-cog"></i> Gebruikers
+                                    </button>
+                                </div>
+                                <div class="border-t border-gray-100 my-1"></div>
+                                <button onclick="refreshCurrentView()"
+                                    class="nav-button w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2">
+                                    <i class="fas fa-refresh"></i> Verversen
+                                </button>
+                                <button onclick="showUserSettings()"
+                                    class="nav-button w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2">
+                                    <i class="fas fa-cog"></i> Instellingen
+                                </button>
+                                <div class="border-t border-gray-100 my-1"></div>
+                                <button onclick="handleLogout()"
+                                    class="nav-button w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2 text-red-600">
+                                    <i class="fas fa-sign-out-alt"></i> Uitloggen
                                 </button>
                             </div>
                         </div>
-
-                    </div>
-                </div>
-                <div class="flex items-center space-x-3">
-                    <!-- Account dropdown -->
-                    <div class="relative group hidden xl:block">
-                        <button class="nav-button px-4 py-2 font-medium flex items-center gap-2">
-                            <i class="fas fa-user-circle text-green-700"></i>
-                            <span id="navUserName"></span>
-                            <i class="fas fa-chevron-down text-xs"></i>
+                        <!-- Mobile hamburger button -->
+                        <button onclick="toggleMobileMenu()" class="xl:hidden btn-sm-bamboo flex items-center gap-2"
+                            id="hamburgerBtn" title="Menu">
+                            <i class="fas fa-bars" id="hamburgerIcon"></i>
                         </button>
-                        <div class="absolute right-0 hidden group-hover:block bg-white shadow-lg rounded-md top-full pt-2 z-50 min-w-[200px]">
-                            <button onclick="switchTab('reports')" id="nav-reports" class="nav-button w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2">
-                                <i class="fas fa-chart-bar"></i> Rapporten
-                            </button>
-                            <div id="nav-users-wrapper" class="hidden">
-                                <button onclick="switchTab('users')" id="nav-users" class="nav-button w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2">
-                                    <i class="fas fa-user-cog"></i> Gebruikers
-                                </button>
-                            </div>
-                            <div class="border-t border-gray-100 my-1"></div>
-                            <button onclick="refreshCurrentView()" class="nav-button w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2">
-                                <i class="fas fa-refresh"></i> Verversen
-                            </button>
-                            <button onclick="showUserSettings()" class="nav-button w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2">
-                                <i class="fas fa-cog"></i> Instellingen
-                            </button>
-                            <div class="border-t border-gray-100 my-1"></div>
-                            <button onclick="handleLogout()" class="nav-button w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2 text-red-600">
-                                <i class="fas fa-sign-out-alt"></i> Uitloggen
-                            </button>
-                        </div>
                     </div>
-                    <!-- Mobile hamburger button -->
-                    <button onclick="toggleMobileMenu()" class="xl:hidden btn-sm-bamboo flex items-center gap-2" id="hamburgerBtn" title="Menu">
-                        <i class="fas fa-bars" id="hamburgerIcon"></i>
+                </div>
+                <!-- Mobile menu -->
+                <div id="mobileMenu" class="space-y-2">
+                    <button onclick="switchTab('dashboard'); toggleMobileMenu();"
+                        class="nav-button block w-full text-left px-4 py-2 flex items-center gap-2">
+                        <i class="fas fa-chart-line"></i> Dashboard
                     </button>
+                    <button onclick="switchTab('customers'); toggleMobileMenu();"
+                        class="nav-button block w-full text-left px-4 py-2 flex items-center gap-2">
+                        <i class="fas fa-users"></i> Klanten
+                    </button>
+                    <button onclick="switchTab('orders'); toggleMobileMenu();"
+                        class="nav-button block w-full text-left px-4 py-2 flex items-center gap-2">
+                        <i class="fas fa-shopping-cart"></i> Orders
+                    </button>
+                    <button onclick="switchTab('invoices'); toggleMobileMenu();"
+                        class="nav-button block w-full text-left px-4 py-2 flex items-center gap-2">
+                        <i class="fas fa-file-invoice"></i> Facturen
+                    </button>
+                    <button onclick="switchTab('payments'); toggleMobileMenu();"
+                        class="nav-button block w-full text-left px-4 py-2 flex items-center gap-2">
+                        <i class="fas fa-credit-card"></i> Betalingen
+                    </button>
+                    <button onclick="switchTab('subscriptions'); toggleMobileMenu();"
+                        class="nav-button block w-full text-left px-4 py-2 flex items-center gap-2">
+                        <i class="fas fa-sync"></i> Abonnementen
+                    </button>
+                    <button onclick="switchTab('maintenance-plans'); toggleMobileMenu();"
+                        class="nav-button block w-full text-left px-4 py-2 flex items-center gap-2">
+                        <i class="fas fa-layer-group"></i> Plannen
+                    </button>
+                    <div class="border-t border-gray-200 pt-2 mt-2">
+                        <button onclick="switchTab('reports'); toggleMobileMenu();" id="nav-reports"
+                            class="nav-button block w-full text-left px-4 py-2 flex items-center gap-2">
+                            <i class="fas fa-chart-bar"></i> Rapporten
+                        </button>
+                        <button id="mobile-nav-users" onclick="switchTab('users'); toggleMobileMenu();"
+                            class="hidden nav-button block w-full text-left px-4 py-2 flex items-center gap-2">
+                            <i class="fas fa-user-cog"></i> Gebruikers
+                        </button>
+                        <div class="border-t border-gray-100 my-1"></div>
+                        <button onclick="refreshCurrentView(); toggleMobileMenu();"
+                            class="nav-button block w-full text-left px-4 py-2 flex items-center gap-2">
+                            <i class="fas fa-refresh"></i> Vernieuwen
+                        </button>
+                        <button onclick="showUserSettings(); toggleMobileMenu();"
+                            class="nav-button block w-full text-left px-4 py-2 flex items-center gap-2">
+                            <i class="fas fa-cog"></i> Instellingen
+                        </button>
+                        <button onclick="handleLogout();"
+                            class="nav-button block w-full text-left px-4 py-2 flex items-center gap-2 text-red-600">
+                            <i class="fas fa-sign-out-alt"></i> Uitloggen
+                        </button>
+                    </div>
                 </div>
             </div>
-            <!-- Mobile menu -->
-            <div id="mobileMenu" class="space-y-2">
-                <button onclick="switchTab('dashboard'); toggleMobileMenu();" class="nav-button block w-full text-left px-4 py-2 flex items-center gap-2">
-                    <i class="fas fa-chart-line"></i> Dashboard
-                </button>
-                <button onclick="switchTab('customers'); toggleMobileMenu();" class="nav-button block w-full text-left px-4 py-2 flex items-center gap-2">
-                    <i class="fas fa-users"></i> Klanten
-                </button>
-                <button onclick="switchTab('orders'); toggleMobileMenu();" class="nav-button block w-full text-left px-4 py-2 flex items-center gap-2">
-                    <i class="fas fa-shopping-cart"></i> Orders
-                </button>
-                <button onclick="switchTab('invoices'); toggleMobileMenu();" class="nav-button block w-full text-left px-4 py-2 flex items-center gap-2">
-                    <i class="fas fa-file-invoice"></i> Facturen
-                </button>
-                <button onclick="switchTab('payments'); toggleMobileMenu();" class="nav-button block w-full text-left px-4 py-2 flex items-center gap-2">
-                    <i class="fas fa-credit-card"></i> Betalingen
-                </button>
-                <button onclick="switchTab('subscriptions'); toggleMobileMenu();" class="nav-button block w-full text-left px-4 py-2 flex items-center gap-2">
-                    <i class="fas fa-sync"></i> Abonnementen
-                </button>
-                <button onclick="switchTab('maintenance-plans'); toggleMobileMenu();" class="nav-button block w-full text-left px-4 py-2 flex items-center gap-2">
-                    <i class="fas fa-layer-group"></i> Plannen
-                </button>
-                <div class="border-t border-gray-200 pt-2 mt-2">
-                    <button onclick="switchTab('reports'); toggleMobileMenu();" id="nav-reports" class="nav-button block w-full text-left px-4 py-2 flex items-center gap-2">
-                        <i class="fas fa-chart-bar"></i> Rapporten
-                    </button>
-                    <button id="mobile-nav-users" onclick="switchTab('users'); toggleMobileMenu();" class="hidden nav-button block w-full text-left px-4 py-2 flex items-center gap-2">
-                        <i class="fas fa-user-cog"></i> Gebruikers
-                    </button>
-                    <div class="border-t border-gray-100 my-1"></div>
-                    <button onclick="refreshCurrentView(); toggleMobileMenu();" class="nav-button block w-full text-left px-4 py-2 flex items-center gap-2">
-                        <i class="fas fa-refresh"></i> Vernieuwen
-                    </button>
-                    <button onclick="showUserSettings(); toggleMobileMenu();" class="nav-button block w-full text-left px-4 py-2 flex items-center gap-2">
-                        <i class="fas fa-cog"></i> Instellingen
-                    </button>
-                    <button onclick="handleLogout();" class="nav-button block w-full text-left px-4 py-2 flex items-center gap-2 text-red-600">
-                        <i class="fas fa-sign-out-alt"></i> Uitloggen
-                    </button>
-                </div>
-            </div>
-        </div>
-    </nav>
+        </nav>
 
-    <!-- User Settings Modal -->
-    <div id="userSettingsModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]" style="backdrop-filter: blur(4px);">
-        <div class="modal-premium w-full max-w-md max-h-[90vh] overflow-hidden flex flex-col relative">
-            <!-- Close button -->
-            <button onclick="closeUserSettingsWithConfirmation()" 
+        <!-- User Settings Modal -->
+        <div id="userSettingsModal"
+            class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]"
+            style="backdrop-filter: blur(4px);">
+            <div class="modal-premium w-full max-w-md max-h-[90vh] overflow-hidden flex flex-col relative">
+                <!-- Close button -->
+                <button onclick="closeUserSettingsWithConfirmation()"
                     class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 transition-colors text-gray-600 hover:text-gray-900 z-10"
                     title="Sluiten">
-                <i class="fas fa-times text-xl"></i>
-            </button>
+                    <i class="fas fa-times text-xl"></i>
+                </button>
 
-            <div class="modal-header">
-                <h2 class="text-2xl font-bold flex items-center gap-3 pr-10">
-                    <div class="icon-premium icon-wood">
-                        <i class="fas fa-user-cog"></i>
-                    </div>
-                    Persoonlijke Instellingen
-                </h2>
-            </div>
-            <div class="modal-body overflow-y-auto">
-                <div class="space-y-5">
-                    <div>
-                        <label class="block text-sm font-semibold mb-2 text-gray-700">🎨 Thema</label>
-                        <select id="settingTheme" class="input-premium w-full">
-                            <option value="light">☀️ Licht</option>
-                            <option value="dark">🌙 Donker</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-semibold mb-2 text-gray-700">🌍 Taal</label>
-                        <select id="settingLanguage" class="input-premium w-full">
-                            <option value="nl">🇳🇱 Nederlands</option>
-                            <option value="en">🇬🇧 English</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-semibold mb-2 text-gray-700">📋 Items per pagina</label>
-                        <input type="number" id="settingItemsPerPage" min="5" max="100" 
-                               class="input-premium w-full">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-semibold mb-2 text-gray-700">📅 Datum formaat</label>
-                        <select id="settingDateFormat" class="input-premium w-full">
-                            <option value="DD-MM-YYYY">DD-MM-YYYY</option>
-                            <option value="MM-DD-YYYY">MM-DD-YYYY</option>
-                            <option value="YYYY-MM-DD">YYYY-MM-DD</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-semibold mb-2 text-gray-700">💰 Valuta</label>
-                        <select id="settingCurrency" class="input-premium w-full">
-                            <option value="EUR">EUR (€)</option>
-                            <option value="USD">USD ($)</option>
-                            <option value="GBP">GBP (£)</option>
-                        </select>
-                    </div>
-                    <div class="flex items-center gap-3 p-4 bg-gray-50 rounded-xl">
-                        <input type="checkbox" id="settingNotifications" class="w-5 h-5 text-bamboo-primary rounded">
-                        <label class="text-sm font-semibold text-gray-700">🔔 Notificaties inschakelen</label>
-                    </div>
-                    <div class="flex gap-3 justify-end mt-6 pt-4 border-t">
-                        <button onclick="closeUserSettingsWithConfirmation()" class="btn-ghost">
-                            Annuleren
-                        </button>
-                        <button onclick="saveUserSettingsFromForm()" class="btn-bamboo">
-                            <i class="fas fa-save mr-2"></i>Opslaan
-                        </button>
+                <div class="modal-header">
+                    <h2 class="text-2xl font-bold flex items-center gap-3 pr-10">
+                        <div class="icon-premium icon-wood">
+                            <i class="fas fa-user-cog"></i>
+                        </div>
+                        Persoonlijke Instellingen
+                    </h2>
+                </div>
+                <div class="modal-body overflow-y-auto">
+                    <div class="space-y-5">
+                        <div>
+                            <label class="block text-sm font-semibold mb-2 text-gray-700">🎨 Thema</label>
+                            <select id="settingTheme" class="input-premium w-full">
+                                <option value="light">☀️ Licht</option>
+                                <option value="dark">🌙 Donker</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold mb-2 text-gray-700">🌍 Taal</label>
+                            <select id="settingLanguage" class="input-premium w-full">
+                                <option value="nl">🇳🇱 Nederlands</option>
+                                <option value="en">🇬🇧 English</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold mb-2 text-gray-700">📋 Items per pagina</label>
+                            <input type="number" id="settingItemsPerPage" min="5" max="100"
+                                class="input-premium w-full">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold mb-2 text-gray-700">📅 Datum formaat</label>
+                            <select id="settingDateFormat" class="input-premium w-full">
+                                <option value="DD-MM-YYYY">DD-MM-YYYY</option>
+                                <option value="MM-DD-YYYY">MM-DD-YYYY</option>
+                                <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold mb-2 text-gray-700">💰 Valuta</label>
+                            <select id="settingCurrency" class="input-premium w-full">
+                                <option value="EUR">EUR (€)</option>
+                                <option value="USD">USD ($)</option>
+                                <option value="GBP">GBP (£)</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center gap-3 p-4 bg-gray-50 rounded-xl">
+                            <input type="checkbox" id="settingNotifications"
+                                class="w-5 h-5 text-bamboo-primary rounded">
+                            <label class="text-sm font-semibold text-gray-700">🔔 Notificaties inschakelen</label>
+                        </div>
+                        <div class="flex gap-3 justify-end mt-6 pt-4 border-t">
+                            <button onclick="closeUserSettingsWithConfirmation()" class="btn-ghost">
+                                Annuleren
+                            </button>
+                            <button onclick="saveUserSettingsFromForm()" class="btn-bamboo">
+                                <i class="fas fa-save mr-2"></i>Opslaan
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Main Container -->
-    <div class="w-full px-4 sm:px-6 py-5 flex-grow">
-        <!-- Content Area -->
-        <div id="content" class="page-transition">
-            <div class="card-glass text-center py-12">
-                <div class="spinner-premium mx-auto mb-4"></div>
-                <p class="text-gray-600 font-medium">Laden...</p>
+        <!-- Main Container -->
+        <div class="w-full px-4 sm:px-6 py-5 flex-grow">
+            <!-- Content Area -->
+            <div id="content" class="page-transition">
+                <div class="card-glass text-center py-12">
+                    <div class="spinner-premium mx-auto mb-4"></div>
+                    <p class="text-gray-600 font-medium">Laden...</p>
+                </div>
             </div>
         </div>
-    </div>
 
-    <!-- Footer -->
-    <footer id="appFooter" class="hidden bg-white border-t border-gray-200 mt-auto">
-        <div class="w-full px-4 sm:px-6 py-3">
-            <div class="flex items-center justify-between text-sm text-gray-600">
-                <p>© <span id="footerYear"></span> RiceDesk. Alle rechten voorbehouden.</p>
-                <span class="badge-premium badge-success text-xs text-nowrap">v2.0 Premium</span>
+        <!-- Footer -->
+        <footer id="appFooter" class="hidden bg-white border-t border-gray-200 mt-auto">
+            <div class="w-full px-4 sm:px-6 py-3">
+                <div class="flex items-center justify-between text-sm text-gray-600">
+                    <p>© <span id="footerYear"></span> RiceDesk. Alle rechten voorbehouden.</p>
+                    <span class="badge-premium badge-success text-xs text-nowrap">v2.0 Premium</span>
+                </div>
+            </div>
+        </footer>
+
+        <!-- Toast Notification -->
+        <div id="toast" class="hidden fixed bottom-6 right-6 z-[10000]">
+            <div class="toast-premium flex items-center gap-3 min-w-[300px]">
+                <i id="toastIcon" class="text-2xl"></i>
+                <span id="toastMessage" class="flex-1 font-medium"></span>
             </div>
         </div>
-    </footer>
-
-    <!-- Toast Notification -->
-    <div id="toast" class="hidden fixed bottom-6 right-6 z-[10000]">
-        <div class="toast-premium flex items-center gap-3 min-w-[300px]">
-            <i id="toastIcon" class="text-2xl"></i>
-            <span id="toastMessage" class="flex-1 font-medium"></span>
-        </div>
-    </div>
 
     </div><!-- /mainApp -->
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="js/config.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/api.js"></script>
@@ -324,4 +356,5 @@
     <script src="js/users.js"></script>
     <script src="js/app.js"></script>
 </body>
+
 </html>
