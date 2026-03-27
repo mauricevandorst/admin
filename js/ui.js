@@ -1,22 +1,26 @@
 // UI Helper functions
 function showToast(message, type = 'info') {
     const toast = document.getElementById('toast');
+    const toastIcon = document.getElementById('toastIcon');
     const toastMessage = document.getElementById('toastMessage');
-    
+
     toastMessage.textContent = message;
-    
-    // Set color based on type
-    toast.className = 'fixed bottom-4 right-4 px-6 py-3 rounded-lg shadow-lg text-white';
+
+    // Set icon and color based on type
+    const toastPremium = toast.querySelector('.toast-premium');
     if (type === 'success') {
-        toast.classList.add('bg-green-500');
+        toastIcon.className = 'fas fa-check-circle text-2xl';
+        toastPremium.className = 'toast-premium flex items-center gap-3 min-w-[300px] bg-green-500 text-white';
     } else if (type === 'error') {
-        toast.classList.add('bg-red-500');
+        toastIcon.className = 'fas fa-exclamation-circle text-2xl';
+        toastPremium.className = 'toast-premium flex items-center gap-3 min-w-[300px] bg-red-500 text-white';
     } else {
-        toast.classList.add('bg-blue-500');
+        toastIcon.className = 'fas fa-info-circle text-2xl';
+        toastPremium.className = 'toast-premium flex items-center gap-3 min-w-[300px] bg-blue-500 text-white';
     }
-    
+
     toast.classList.remove('hidden');
-    
+
     setTimeout(() => {
         toast.classList.add('hidden');
     }, 3000);
@@ -73,6 +77,9 @@ function switchTab(tabName) {
             break;
         case 'payments':
             loadPayments();
+            break;
+        case 'maintenance-plans':
+            loadMaintenancePlans();
             break;
         case 'subscriptions':
             loadSubscriptions();
@@ -151,9 +158,6 @@ function createModal(title, content, onSave, saveButtonText = 'Opslaan', size = 
     };
     const widthClass = sizeClasses[size] || sizeClasses['md'];
 
-    // Track if form has unsaved changes
-    let hasUnsavedChanges = false;
-
     modal.innerHTML = `
         <div class="bg-white rounded-lg p-6 w-full ${widthClass} max-h-[90vh] overflow-y-auto relative shadow-2xl">
             <!-- Close button -->
@@ -177,20 +181,28 @@ function createModal(title, content, onSave, saveButtonText = 'Opslaan', size = 
         </div>
     `;
 
+    // Initialize hasUnsavedChanges flag before adding to DOM
+    modal.dataset.hasUnsavedChanges = 'false';
+
     document.body.appendChild(modal);
 
-    // Track changes in form inputs
-    const formInputs = modal.querySelectorAll('input, select, textarea');
-    formInputs.forEach(input => {
-        input.addEventListener('change', () => {
-            hasUnsavedChanges = true;
-        });
+    // Prevent modal from closing when clicking on the backdrop
+    modal.addEventListener('click', (e) => {
+        // Only prevent closing - do nothing when backdrop is clicked
+        e.stopPropagation();
     });
 
-    // Store hasUnsavedChanges flag on modal element
-    modal.dataset.hasUnsavedChanges = 'false';
-    modal.addEventListener('change', () => {
-        modal.dataset.hasUnsavedChanges = 'true';
+    // Track changes in form inputs - use both 'change' and 'input' events for better detection
+    const formInputs = modal.querySelectorAll('input:not([type="hidden"]), select, textarea');
+    formInputs.forEach(input => {
+        // Use 'input' event for real-time tracking (fires on every keystroke)
+        input.addEventListener('input', () => {
+            modal.dataset.hasUnsavedChanges = 'true';
+        });
+        // Use 'change' event for dropdowns and when input loses focus
+        input.addEventListener('change', () => {
+            modal.dataset.hasUnsavedChanges = 'true';
+        });
     });
 
     document.getElementById('saveBtn').onclick = async () => {
@@ -206,19 +218,34 @@ function createModal(title, content, onSave, saveButtonText = 'Opslaan', size = 
     return modal;
 }
 
-// Close modal with confirmation if there are unsaved changes
+// Close modal with confirmation (only ask if there are unsaved changes)
 function closeModalWithConfirmation(buttonElement) {
     const modal = buttonElement.closest('.fixed');
     if (!modal) return;
 
-    const hasChanges = modal.dataset.hasUnsavedChanges === 'true';
-
-    if (hasChanges) {
-        const confirmed = confirm('Er zijn niet-opgeslagen wijzigingen. Weet je zeker dat je wilt sluiten?');
-        if (!confirmed) return;
+    // Only ask for confirmation if there are unsaved changes
+    const hasUnsavedChanges = modal.dataset.hasUnsavedChanges === 'true';
+    if (hasUnsavedChanges) {
+        const confirmed = confirm('Je hebt onopgeslagen wijzigingen. Weet je zeker dat je wilt sluiten?');
+        if (!confirmed) {
+            return;
+        }
     }
 
     modal.remove();
+}
+
+// Close the most recent modal without confirmation
+function closeModal() {
+    const modals = document.querySelectorAll('.fixed');
+    // Find the last modal (excluding toast and other fixed elements)
+    for (let i = modals.length - 1; i >= 0; i--) {
+        const modal = modals[i];
+        if (modal.id !== 'userSettingsModal' && modal.id !== 'toast' && modal.id !== 'appFooter') {
+            modal.remove();
+            return;
+        }
+    }
 }
 
 function formatDate(dateString) {

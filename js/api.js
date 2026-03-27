@@ -3,9 +3,12 @@ async function apiRequest(endpoint, options = {}) {
     const config = getAppConfig();
     const url = `${config.apiUrl}${endpoint}`;
 
+    // Get Basic Auth credentials from config
+    const basicAuthHeader = btoa(`${config.username}:${config.password}`);
+
     const headers = {
         'Content-Type': 'application/json',
-        'x-functions-key': config.apiKey,
+        'Authorization': `Basic ${basicAuthHeader}`,
         ...options.headers
     };
 
@@ -61,3 +64,4 @@ async function remove(resource, id) {
         method: 'DELETE'
     });
 }
+

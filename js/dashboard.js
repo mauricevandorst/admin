@@ -154,6 +154,9 @@ function renderDashboard(stats, invoices, payments, subscriptions, customers) {
                 ${createStatCard('Abonnementen', stats.totalSubscriptions, 'sync', 'sunset', 'Totaal aantal abonnementen', 'switchTab("subscriptions")')}
             </div>
 
+            <!-- Alerts & Warnings -->
+            ${renderAlerts(stats)}
+
             <!-- Financial Overview -->
             <div class="card-premium">
                 <h3 class="text-2xl font-bold mb-6 flex items-center">
@@ -186,9 +189,6 @@ function renderDashboard(stats, invoices, payments, subscriptions, customers) {
                     </div>
                 </div>
             </div>
-
-            <!-- Alerts & Warnings -->
-            ${renderAlerts(stats)}
 
             <!-- Invoice & Subscription Status -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -478,10 +478,10 @@ function renderRecentInvoices(invoices, customers) {
             <div class="space-y-3">
                 ${recent.map(invoice => {
                     const statusConfig = {
-                        paid: { badge: 'badge-success', icon: 'check' },
-                        partially_paid: { badge: 'badge-info', icon: 'chart-pie' },
-                        pending: { badge: 'badge-warning', icon: 'clock' },
-                        overdue: { badge: 'badge-danger', icon: 'exclamation' }
+                        paid: { badge: 'badge-success', icon: 'check', label: 'Betaald' },
+                        partially_paid: { badge: 'badge-info', icon: 'chart-pie', label: 'Gedeeltelijk' },
+                        pending: { badge: 'badge-warning', icon: 'clock', label: 'Openstaand' },
+                        overdue: { badge: 'badge-danger', icon: 'exclamation', label: 'Achterstallig' }
                     };
                     const config = statusConfig[invoice.status] || statusConfig.pending;
 
@@ -491,16 +491,22 @@ function renderRecentInvoices(invoices, customers) {
                     return `
                         <div class="flex items-center justify-between p-4 hover:bg-gray-50 rounded-xl transition-all hover-lift">
                             <div class="flex-1">
-                                <p class="font-semibold">${invoice.invoiceNumber}</p>
-                                <p class="text-xs text-gray-500 mt-1">${formatDate(invoice.invoiceDate)}</p>
+                                <div class="flex items-center gap-2 mb-1">
+                                    <i class="fas fa-file-invoice text-gray-400 text-sm"></i>
+                                    <p class="font-semibold text-gray-900">${invoice.invoiceNumber}</p>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <i class="fas fa-user text-gray-400 text-xs"></i>
+                                    <p class="text-xs text-gray-500">${customerName}</p>
+                                </div>
                             </div>
                             <div class="text-right mr-4">
-                                <p class="font-bold">${formatCurrency(invoice.totalAmount)}</p>
-                                <p class="text-xs text-gray-500 mt-1">${customerName}</p>
+                                <p class="font-bold text-lg">${formatCurrency(invoice.totalAmount)}</p>
+                                <p class="text-xs text-gray-500 mt-1">${formatDate(invoice.invoiceDate)}</p>
                             </div>
                             <span class="badge-premium ${config.badge}">
                                 <i class="fas fa-${config.icon}"></i>
-                                ${invoice.status}
+                                ${config.label}
                             </span>
                         </div>
                     `;
@@ -544,16 +550,18 @@ function renderRecentPayments(payments) {
                 ${recent.map(payment => `
                     <div class="flex items-center justify-between p-4 hover:bg-gray-50 rounded-xl transition-all hover-lift">
                         <div class="flex-1">
-                            <p class="font-semibold">${payment.paymentId || 'N/A'}</p>
-                            <p class="text-xs text-gray-500 mt-1">${formatDate(payment.date)}</p>
+                            <div class="flex items-center gap-2 mb-1">
+                                <i class="fas fa-file-invoice text-gray-400 text-sm"></i>
+                                <p class="font-semibold text-gray-900">${payment.invoiceNumber || 'N/A'}</p>
+                            </div>
+                            <p class="text-xs text-gray-500">${formatDate(payment.date)}</p>
                         </div>
-                        <div class="text-right mr-4">
-                            <p class="font-bold text-green-600">${formatCurrency(payment.amount)}</p>
-                            <p class="text-xs text-gray-500 mt-1">${payment.method || 'N/A'}</p>
-                        </div>
-                        <div class="badge-premium badge-success">
-                            <i class="fas fa-file-invoice"></i>
-                            ${payment.invoiceNumber || 'N/A'}
+                        <div class="text-right">
+                            <p class="font-bold text-green-600 text-lg">${formatCurrency(payment.amount)}</p>
+                            <div class="flex items-center justify-end gap-1 mt-1">
+                                <i class="fas fa-${payment.method === 'bank_transfer' ? 'university' : payment.method === 'credit_card' ? 'credit-card' : payment.method === 'cash' ? 'money-bill-wave' : 'wallet'} text-xs text-gray-400"></i>
+                                <p class="text-xs text-gray-500">${payment.method === 'bank_transfer' ? 'Bankoverschrijving' : payment.method === 'credit_card' ? 'Creditcard' : payment.method === 'cash' ? 'Contant' : payment.method || 'N/A'}</p>
+                            </div>
                         </div>
                     </div>
                 `).join('')}

@@ -1,7 +1,11 @@
-// Application Configuration (hardcoded)
+// Application Configuration
+// ⚠️ BELANGRIJK: In productie, gebruik environment variables voor gevoelige data!
 const APP_CONFIG = {
     apiUrl: 'https://ricedesk-api.azurewebsites.net/api',
-    apiKey: '_gONag4maPjTzQ67Xd1BOV9EzEVq0M7YYIPo3VKojJ6uAzFuZfS_Jg==',
+    // Basic Authentication - Deze credentials worden gebruikt voor alle API calls
+    // Voor productie: vervang door process.env variabelen of haal op van beveiligde bron
+    username: 'admin',
+    password: 'e4da26b5-2dc3-46eb-bb40-dc67bfe6e123',
     appName: 'RiceDesk',
     version: '2.0'
 };

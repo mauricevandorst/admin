@@ -46,6 +46,32 @@ h1, h2, h3, h4, h5, h6 {
     font-weight: 700;
 }
 
+/* Form Error States */
+.error {
+    border-color: #EF4444 !important;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1) !important;
+}
+
+.error:focus {
+    border-color: #EF4444 !important;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2) !important;
+}
+
+.error-message {
+    animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 /* Premium Navigation */
 nav.bamboo-nav {
     background: rgba(255, 255, 255, 0.75);
@@ -299,50 +325,78 @@ nav .nav-button.active {
 .icon-bamboo {
     background: var(--gradient-bamboo);
     color: white;
-    padding: 0.4rem;
-    border-radius: var(--radius-lg);
+    padding: 0.5rem;
+    border-radius: 5px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
 }
 
 .icon-sunset {
     background: var(--gradient-sunset);
     color: white;
-    padding: 0.4rem;
-    border-radius: var(--radius-lg);
+    padding: 0.5rem;
+    border-radius: 5px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
 }
 
 .icon-rose {
     background: var(--gradient-rose);
     color: white;
-    padding: 0.4rem;
-    border-radius: var(--radius-lg);
+    padding: 0.5rem;
+    border-radius: 5px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
 }
 
 .icon-wood {
     background: var(--gradient-wood);
     color: white;
-    padding: 0.4rem;
-    border-radius: var(--radius-lg);
+    padding: 0.5rem;
+    border-radius: 5px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
 }
 
 .icon-sky {
     background: linear-gradient(135deg, #4FC3F7 0%, #03A9F4 100%);
     color: white;
-    padding: 0.4rem;
-    border-radius: var(--radius-lg);
+    padding: 0.5rem;
+    border-radius: 5px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
 }
 
 .icon-financial {
     background: var(--gradient-invoice);
     color: white;
-    padding: 0.4rem;
-    border-radius: var(--radius-lg);
+    padding: 0.5rem;
+    border-radius: 5px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
 }
 
 .icon-invoice {
     background: var(--gradient-invoice);
     color: white;
-    padding: 0.4rem;
-    border-radius: var(--radius-lg);
+    padding: 0.5rem;
+    border-radius: 5px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
 }
 
 /* Quick Action Buttons */
@@ -505,6 +559,41 @@ nav .nav-button.active {
     transform: translateY(-2px);
 }
 
+/* Form validation styles */
+input:required:invalid,
+select:required:invalid,
+textarea:required:invalid {
+    border-color: #E0E0E0;
+}
+
+input:required:invalid:focus,
+select:required:invalid:focus,
+textarea:required:invalid:focus {
+    border-color: #DC2626;
+    box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.1);
+}
+
+input.error,
+select.error,
+textarea.error {
+    border-color: #DC2626 !important;
+    background-color: #FEF2F2 !important;
+}
+
+.error-message {
+    color: #DC2626;
+    font-size: 0.875rem;
+    margin-top: 0.375rem;
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-weight: 500;
+}
+
+.error-message i {
+    font-size: 1rem;
+}
+
 /* Modals */
 .modal-premium {
     background: white;
@@ -594,6 +683,31 @@ nav .nav-button.active {
 
 .financial-card.success::before {
     background: var(--gradient-bamboo);
+}
+
+/* Form Validation Error Styles */
+.error {
+    border-color: #DC2626 !important;
+    background-color: #FEF2F2 !important;
+}
+
+.error:focus {
+    border-color: #DC2626 !important;
+    ring-color: #DC2626 !important;
+}
+
+.error-message {
+    color: #DC2626;
+    font-size: 0.75rem;
+    margin-top: 0.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-weight: 500;
+}
+
+.error-message i {
+    font-size: 0.875rem;
 }
 
 .financial-card.warning::before {

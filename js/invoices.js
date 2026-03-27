@@ -71,7 +71,7 @@ async function loadInvoices() {
                     <button onclick="showCreatePaymentForInvoice('${invoice.id}')" 
                             class="text-green-600 hover:text-green-900 mr-3" 
                             title="Registreer betaling">
-                        <i class="fas fa-euro-sign"></i>
+                        <i class="fas fa-hand-holding-dollar"></i>
                     </button>
                 ` : '';
 
@@ -165,27 +165,27 @@ function getInvoiceForm(invoice = null, allInvoices = [], customers = []) {
                 <h3 class="font-bold text-lg mb-3">Factuurgegevens</h3>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium mb-2">
-                            Factuurnummer * 
+                        <label for="customerId" class="block text-sm font-medium mb-2">Klant<span class="text-red-600 ml-1">*</span></label>
+                        <select id="customerId" required
+                                class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500">
+                            ${customerOptions}
+                        </select>
+                    </div>
+                    <div>
+                        <label for="invoiceNumber" class="block text-sm font-medium mb-2">
+                            Factuurnummer<span class="text-red-600 ml-1">*</span>
                             ${!invoice ? '<span class="text-xs text-blue-600">(Automatisch)</span>' : ''}
                         </label>
                         <input type="text" id="invoiceNumber" value="${invoiceNumber}" 
                                ${isReadonly} required
                                class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500 ${bgColor}">
                     </div>
-                    <div>
-                        <label class="block text-sm font-medium mb-2">Klant *</label>
-                        <select id="customerId" required
-                                class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500">
-                            ${customerOptions}
-                        </select>
-                    </div>
                 </div>
 
                 <div class="grid grid-cols-3 gap-4 mt-4">
                     <div>
-                        <label class="block text-sm font-medium mb-2">
-                            Factuurdatum * 
+                        <label for="invoiceDate" class="block text-sm font-medium mb-2">
+                            Factuurdatum<span class="text-red-600 ml-1">*</span>
                             ${!invoice ? '<span class="text-xs text-gray-600">(Vandaag)</span>' : ''}
                         </label>
                         <input type="date" id="invoiceDate" 
@@ -193,8 +193,8 @@ function getInvoiceForm(invoice = null, allInvoices = [], customers = []) {
                                class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium mb-2">
-                            Vervaldatum * 
+                        <label for="dueDate" class="block text-sm font-medium mb-2">
+                            Vervaldatum<span class="text-red-600 ml-1">*</span>
                             ${!invoice ? '<span class="text-xs text-gray-600">(+14 dagen)</span>' : ''}
                         </label>
                         <input type="date" id="dueDate" 
@@ -202,7 +202,7 @@ function getInvoiceForm(invoice = null, allInvoices = [], customers = []) {
                                class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium mb-2">Referentie</label>
+                        <label for="reference" class="block text-sm font-medium mb-2">Referentie</label>
                         <input type="text" id="reference" value="${inv.reference || ''}" 
                                placeholder="PO nummer, project code..." 
                                class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500">
@@ -245,23 +245,30 @@ function getInvoiceForm(invoice = null, allInvoices = [], customers = []) {
             </div>
 
             <!-- Notes and Status -->
-            <div class="grid grid-cols-2 gap-4">
+            <div class="grid ${invoice ? 'grid-cols-2' : 'grid-cols-1'} gap-4">
                 <div>
-                    <label class="block text-sm font-medium mb-2">Opmerkingen</label>
+                    <label for="notes" class="block text-sm font-medium mb-2">Opmerkingen</label>
                     <textarea id="notes" rows="3" 
                               placeholder="Extra informatie voor op de factuur..."
                               class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500">${inv.notes || ''}</textarea>
                 </div>
+                ${invoice ? `
                 <div>
-                    <label class="block text-sm font-medium mb-2">Status *</label>
-                    <select id="status" required class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500">
+                    <label for="status" class="block text-sm font-medium mb-2">
+                        Status
+                        <span class="text-xs text-gray-500 ml-2"><i class="fas fa-lock"></i> Alleen-lezen</span>
+                    </label>
+                    <select id="status" disabled class="w-full px-3 py-2 border rounded bg-gray-100 cursor-not-allowed">
                         <option value="pending" ${inv.status === 'pending' || !inv.status ? 'selected' : ''}>Openstaand</option>
                         <option value="partially_paid" ${inv.status === 'partially_paid' ? 'selected' : ''}>Gedeeltelijk Betaald</option>
                         <option value="paid" ${inv.status === 'paid' ? 'selected' : ''}>Betaald</option>
                         <option value="overdue" ${inv.status === 'overdue' ? 'selected' : ''}>Achterstallig</option>
                     </select>
-                    <p class="text-xs text-gray-500 mt-1">Status wordt automatisch bijgewerkt bij betalingen</p>
+                    <p class="text-xs text-gray-500 mt-1">
+                        <i class="fas fa-info-circle"></i> Status wordt automatisch bijgewerkt bij betalingen
+                    </p>
                 </div>
+                ` : ''}
             </div>
         </div>
     `;
@@ -318,8 +325,9 @@ function getInvoiceFormWithPayments(invoice, allInvoices, customers, payments, t
         showButton: remainingAmount > 0
     });
 
-    // Check if invoice is marked as paid (read-only for payment history)
-    const isPaid = invoice.status === 'paid';
+    // Betaalgeschiedenis is altijd read-only (vergrendeld)
+    // Betalingen worden beheerd via de betalingen module, niet via factuur bewerken
+    const isPaid = true;
 
     const paymentSection = `
         <!-- Payment History Section -->
@@ -328,27 +336,16 @@ function getInvoiceFormWithPayments(invoice, allInvoices, customers, payments, t
                 <h3 class="font-bold text-lg flex items-center">
                     <i class="fas fa-credit-card mr-2 text-${statusColor}-600"></i>
                     Betaalgeschiedenis
-                    ${isPaid ? '<span class="ml-2 text-xs bg-green-600 text-white px-2 py-1 rounded"><i class="fas fa-lock"></i> Vergrendeld</span>' : ''}
+                    <span class="ml-2 text-xs bg-gray-600 text-white px-2 py-1 rounded"><i class="fas fa-lock"></i> Alleen-lezen</span>
                 </h3>
-                ${!isPaid && remainingAmount > 0 ? `
-                    <button type="button" 
-                            id="addPaymentBtn"
-                            onclick="event.preventDefault(); showCreatePaymentForInvoice('${invoice.id}')" 
-                            class="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-sm">
-                        <i class="fas fa-plus"></i> Betaling Registreren
-                    </button>
-                ` : ''}
             </div>
 
-            ${isPaid ? `
-                <div class="bg-green-100 border border-green-300 rounded p-3 mb-4">
-                    <p class="text-sm text-green-800">
-                        <i class="fas fa-info-circle mr-2"></i>
-                        <strong>Betaalgeschiedenis is vergrendeld</strong> - Deze factuur heeft de status "Betaald". 
-                        Wijzig de status om betalingen toe te voegen of te bewerken.
-                    </p>
-                </div>
-            ` : ''}
+            <div class="bg-blue-100 border border-blue-300 rounded p-3 mb-4">
+                <p class="text-sm text-blue-800">
+                    <i class="fas fa-info-circle mr-2"></i>
+                    <strong>Betaalgeschiedenis is alleen-lezen</strong> - Betalingen worden geregistreerd via het betalingen overzicht, niet via het bewerken van de factuur.
+                </p>
+            </div>
 
             <!-- Payment Summary -->
             <div class="grid grid-cols-3 gap-4 mb-4">
@@ -409,7 +406,7 @@ function getInvoiceItemRow(index, item = {}) {
         <div class="invoice-item bg-white p-3 rounded border" data-index="${index}">
             <div class="grid grid-cols-12 gap-2 items-start">
                 <div class="col-span-5">
-                    <label class="block text-xs font-medium mb-1">Beschrijving *</label>
+                    <label class="block text-xs font-medium mb-1">Beschrijving<span class="text-red-600 ml-1">*</span></label>
                     <input type="text" 
                            class="item-description w-full px-2 py-1 border rounded text-sm" 
                            value="${description}"
@@ -418,7 +415,7 @@ function getInvoiceItemRow(index, item = {}) {
                            required>
                 </div>
                 <div class="col-span-2">
-                    <label class="block text-xs font-medium mb-1">Aantal *</label>
+                    <label class="block text-xs font-medium mb-1">Aantal<span class="text-red-600 ml-1">*</span></label>
                     <input type="number" 
                            class="item-quantity w-full px-2 py-1 border rounded text-sm" 
                            value="${quantity}"
@@ -428,7 +425,7 @@ function getInvoiceItemRow(index, item = {}) {
                            required>
                 </div>
                 <div class="col-span-2">
-                    <label class="block text-xs font-medium mb-1">Prijs *</label>
+                    <label class="block text-xs font-medium mb-1">Prijs<span class="text-red-600 ml-1">*</span></label>
                     <input type="number" 
                            class="item-price w-full px-2 py-1 border rounded text-sm" 
                            value="${unitPrice}"
@@ -526,6 +523,60 @@ function calculateInvoiceTotals() {
     document.getElementById('subtotalDisplay').textContent = formatCurrency(subtotal);
     document.getElementById('vatDisplay').textContent = formatCurrency(vatTotal);
     document.getElementById('totalDisplay').textContent = formatCurrency(total);
+
+    // Update payment history section if it exists
+    updatePaymentHistorySummary(total);
+}
+
+// Update payment history summary when invoice total changes
+function updatePaymentHistorySummary(newTotal) {
+    const paymentHistorySection = document.getElementById('paymentHistorySection');
+    if (!paymentHistorySection) return;
+
+    // Find the payment summary cards
+    const summaryCards = paymentHistorySection.querySelectorAll('.grid.grid-cols-3 > div');
+    if (summaryCards.length < 3) return;
+
+    // Get current paid amount from the display
+    const paidAmountElement = summaryCards[1].querySelector('.text-xl');
+    if (!paidAmountElement) return;
+
+    // Extract paid amount from the formatted currency string
+    const paidText = paidAmountElement.textContent.trim();
+    const paidAmount = parseCurrency(paidText);
+
+    // Calculate new remaining amount
+    const remainingAmount = Math.max(newTotal - paidAmount, 0);
+
+    // Update "Totaal Factuur" (first card)
+    const totalAmountElement = summaryCards[0].querySelector('.text-xl');
+    if (totalAmountElement) {
+        totalAmountElement.textContent = formatCurrency(newTotal);
+    }
+
+    // Update "Openstaand" (third card)
+    const remainingAmountElement = summaryCards[2].querySelector('.text-xl');
+    if (remainingAmountElement) {
+        remainingAmountElement.textContent = formatCurrency(remainingAmount);
+
+        // Update color class
+        remainingAmountElement.className = remainingAmountElement.className.replace(/text-(yellow|green)-600/, 
+            remainingAmount > 0 ? 'text-yellow-600' : 'text-green-600');
+    }
+
+    // Update progress bar if it exists
+    const progressBar = summaryCards[2].querySelector('.bg-gray-200 .transition-all');
+    if (progressBar && newTotal > 0) {
+        const paymentPercentage = Math.min((paidAmount / newTotal * 100), 100);
+        progressBar.style.width = `${paymentPercentage}%`;
+    }
+}
+
+// Helper function to parse currency string back to number
+function parseCurrency(currencyString) {
+    if (!currencyString) return 0;
+    // Remove currency symbol, spaces, and convert comma to dot
+    return parseFloat(currencyString.replace(/[€\s]/g, '').replace(',', '.')) || 0;
 }
 
 function getInvoiceData() {
@@ -556,7 +607,7 @@ function getInvoiceData() {
 
     const totalAmount = subtotal + vatTotal;
 
-    return {
+    const invoiceData = {
         invoiceNumber: document.getElementById('invoiceNumber').value.trim(),
         customerId: document.getElementById('customerId').value.trim(),
         invoiceDate: document.getElementById('invoiceDate').value,
@@ -566,9 +617,121 @@ function getInvoiceData() {
         items: items,
         subTotal: subtotal,
         vatAmount: vatTotal,
-        totalAmount: totalAmount,
-        status: document.getElementById('status').value
+        totalAmount: totalAmount
     };
+
+    // Only include status if the field exists (when editing existing invoice)
+    const statusElement = document.getElementById('status');
+    if (statusElement) {
+        invoiceData.status = statusElement.value;
+    } else {
+        // Default status for new invoices
+        invoiceData.status = 'pending';
+    }
+
+    return invoiceData;
+}
+
+// Validate invoice form data
+function validateInvoiceData(data) {
+    const errors = [];
+
+    // Clear previous error states
+    document.querySelectorAll('.error').forEach(el => el.classList.remove('error'));
+    document.querySelectorAll('.error-message').forEach(el => el.remove());
+
+    // Validate invoice number
+    if (!data.invoiceNumber || data.invoiceNumber.length === 0) {
+        errors.push({ field: 'invoiceNumber', message: 'Factuurnummer is verplicht' });
+    }
+
+    // Validate customer
+    if (!data.customerId || data.customerId.length === 0) {
+        errors.push({ field: 'customerId', message: 'Selecteer een klant' });
+    }
+
+    // Validate invoice date
+    if (!data.invoiceDate || data.invoiceDate.length === 0) {
+        errors.push({ field: 'invoiceDate', message: 'Factuurdatum is verplicht' });
+    }
+
+    // Validate due date
+    if (!data.dueDate || data.dueDate.length === 0) {
+        errors.push({ field: 'dueDate', message: 'Vervaldatum is verplicht' });
+    }
+
+    // Validate due date is after invoice date
+    if (data.invoiceDate && data.dueDate) {
+        const invoiceDate = new Date(data.invoiceDate);
+        const dueDate = new Date(data.dueDate);
+        if (dueDate < invoiceDate) {
+            errors.push({ field: 'dueDate', message: 'Vervaldatum moet na factuurdatum zijn' });
+        }
+    }
+
+    // Validate items
+    if (!data.items || data.items.length === 0) {
+        errors.push({ field: 'items', message: 'Voeg minimaal 1 factuurregel toe' });
+    } else {
+        // Validate each item
+        let hasItemErrors = false;
+        data.items.forEach((item, index) => {
+            const itemElement = document.querySelectorAll('.invoice-item')[index];
+
+            if (!item.description || item.description.trim().length === 0) {
+                hasItemErrors = true;
+                const descInput = itemElement.querySelector('.item-description');
+                descInput.classList.add('error');
+                const errorMsg = document.createElement('div');
+                errorMsg.className = 'error-message';
+                errorMsg.innerHTML = '<i class="fas fa-exclamation-circle"></i> Beschrijving is verplicht';
+                descInput.parentElement.appendChild(errorMsg);
+            }
+
+            if (!item.quantity || item.quantity <= 0) {
+                hasItemErrors = true;
+                const qtyInput = itemElement.querySelector('.item-quantity');
+                qtyInput.classList.add('error');
+                const errorMsg = document.createElement('div');
+                errorMsg.className = 'error-message';
+                errorMsg.innerHTML = '<i class="fas fa-exclamation-circle"></i> Aantal moet > 0 zijn';
+                qtyInput.parentElement.appendChild(errorMsg);
+            }
+
+            if (item.unitPrice === undefined || item.unitPrice < 0) {
+                hasItemErrors = true;
+                const priceInput = itemElement.querySelector('.item-price');
+                priceInput.classList.add('error');
+                const errorMsg = document.createElement('div');
+                errorMsg.className = 'error-message';
+                errorMsg.innerHTML = '<i class="fas fa-exclamation-circle"></i> Prijs moet ≥ 0 zijn';
+                priceInput.parentElement.appendChild(errorMsg);
+            }
+        });
+
+        if (hasItemErrors) {
+            errors.push({ field: 'items', message: 'Controleer alle factuurregels' });
+        }
+    }
+
+    // Validate status
+    if (!data.status || data.status.length === 0) {
+        errors.push({ field: 'status', message: 'Status is verplicht' });
+    }
+
+    // Display field-specific errors
+    errors.forEach(error => {
+        const field = document.getElementById(error.field);
+        if (field) {
+            field.classList.add('error');
+            const errorMsg = document.createElement('div');
+            errorMsg.className = 'error-message';
+            errorMsg.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${error.message}`;
+            field.parentElement.appendChild(errorMsg);
+        }
+    });
+
+    return errors;
 }
 
 async function showCreateInvoice() {
@@ -587,9 +750,11 @@ async function showCreateInvoice() {
         createModal('Nieuwe Factuur', getInvoiceForm(null, invoices || [], customers || []), async () => {
             const data = getInvoiceData();
 
-            // Validate items
-            if (!data.items || data.items.length === 0) {
-                throw new Error('Voeg minimaal 1 factuurregel toe');
+            // Validate form data
+            const errors = validateInvoiceData(data);
+            if (errors.length > 0) {
+                const errorMessages = errors.map(e => e.message).join('\n');
+                throw new Error(`Validatie fouten:\n${errorMessages}`);
             }
 
             await create('invoices', data);
@@ -597,8 +762,11 @@ async function showCreateInvoice() {
             loadInvoices();
         });
 
-        // Initialize calculations after modal is created
-        setTimeout(() => calculateInvoiceTotals(), 100);
+        // Initialize calculations and date listener after modal is created
+        setTimeout(() => {
+            calculateInvoiceTotals();
+            setupInvoiceDateListener();
+        }, 100);
     } catch (error) {
         showToast('Fout bij laden van gegevens: ' + error.message, 'error');
     }
@@ -624,9 +792,11 @@ async function showEditInvoice(id) {
             async () => {
                 const data = getInvoiceData();
 
-                // Validate items
-                if (!data.items || data.items.length === 0) {
-                    throw new Error('Voeg minimaal 1 factuurregel toe');
+                // Validate form data
+                const errors = validateInvoiceData(data);
+                if (errors.length > 0) {
+                    const errorMessages = errors.map(e => e.message).join('\n');
+                    throw new Error(`Validatie fouten:\n${errorMessages}`);
                 }
 
                 // Preserve existing payments when updating
@@ -643,6 +813,7 @@ async function showEditInvoice(id) {
         // Initialize calculations after modal is created
         setTimeout(() => {
             calculateInvoiceTotals();
+            setupInvoiceDateListener();
             setupStatusChangeListener(invoice, invoicePayments, totalPaid, remainingAmount);
         }, 100);
     } catch (error) {
@@ -723,6 +894,26 @@ function setupStatusChangeListener(invoice, payments, totalPaid, remainingAmount
             // Remove info message
             infoMessage.remove();
         }
+    });
+}
+
+// Setup listener for invoice date changes to automatically update due date
+function setupInvoiceDateListener() {
+    const invoiceDateInput = document.getElementById('invoiceDate');
+    const dueDateInput = document.getElementById('dueDate');
+
+    if (!invoiceDateInput || !dueDateInput) return;
+
+    invoiceDateInput.addEventListener('change', function() {
+        const invoiceDate = this.value;
+        if (!invoiceDate) return;
+
+        // Calculate due date as 14 days after invoice date
+        const date = new Date(invoiceDate);
+        date.setDate(date.getDate() + 14);
+        const newDueDate = date.toISOString().split('T')[0];
+
+        dueDateInput.value = newDueDate;
     });
 }
 
