@@ -9,6 +9,8 @@
         href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎋</text></svg>">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
     <link rel="stylesheet" href="css/bamboo-theme.css">
 </head>
 
@@ -76,6 +78,25 @@
                                 class="nav-button px-4 py-2 font-medium flex items-center gap-2">
                                 <i class="fas fa-chart-line"></i> Dashboard
                             </button>
+                            
+                            <!-- Finance dropdown -->
+                            <div class="relative group">
+                                <button class="nav-button px-4 py-2 font-medium flex items-center gap-2">
+                                    <i class="fas fa-euro-sign"></i> Financiën
+                                    <i class="fas fa-chevron-down text-xs"></i>
+                                </button>
+                                <div
+                                    class="absolute hidden group-hover:block bg-white shadow-lg rounded-md top-full pt-2 z-50 min-w-[200px]">
+                                    <button onclick="switchTab('invoices')" id="nav-invoices"
+                                        class="nav-button w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2">
+                                        <i class="fas fa-file-invoice"></i> Facturen
+                                    </button>
+                                    <button onclick="switchTab('payments')" id="nav-payments"
+                                        class="nav-button w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2">
+                                        <i class="fas fa-credit-card"></i> Betalingen
+                                    </button>
+                                </div>
+                            </div>
 
                             <!-- Klanten dropdown -->
                             <div class="relative group">
@@ -92,24 +113,6 @@
                                     <button onclick="switchTab('customers')" id="nav-customers"
                                         class="nav-button w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2">
                                         <i class="fas fa-users"></i> Klanten
-                                    </button>
-                                </div>
-                            </div>
-                            <!-- Finance dropdown -->
-                            <div class="relative group">
-                                <button class="nav-button px-4 py-2 font-medium flex items-center gap-2">
-                                    <i class="fas fa-euro-sign"></i> Financiën
-                                    <i class="fas fa-chevron-down text-xs"></i>
-                                </button>
-                                <div
-                                    class="absolute hidden group-hover:block bg-white shadow-lg rounded-md top-full pt-2 z-50 min-w-[200px]">
-                                    <button onclick="switchTab('invoices')" id="nav-invoices"
-                                        class="nav-button w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2">
-                                        <i class="fas fa-file-invoice"></i> Facturen
-                                    </button>
-                                    <button onclick="switchTab('payments')" id="nav-payments"
-                                        class="nav-button w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2">
-                                        <i class="fas fa-credit-card"></i> Betalingen
                                     </button>
                                 </div>
                             </div>

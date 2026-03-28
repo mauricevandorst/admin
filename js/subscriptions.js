@@ -3,10 +3,11 @@ let globalPlansData = []; // Global variable to store plan data for billing calc
 
 async function loadSubscriptions() {
     try {
-        const [subscriptions, customers, plans] = await Promise.all([
+        const [subscriptions, customers, plans, allInvoices] = await Promise.all([
             getAll('subscriptions'),
             getAll('customers'),
-            getAll('maintenance-plans')
+            getAll('maintenance-plans'),
+            getAll('invoices')
         ]);
 
         // Create customer lookup map
@@ -25,6 +26,14 @@ async function loadSubscriptions() {
             });
         }
 
+        // Aantal gekoppelde facturen per abonnement
+        const invoiceCountMap = {};
+        (allInvoices || []).forEach(inv => {
+            if (inv.invoiceSource === 'subscription' && inv.subscriptionId) {
+                invoiceCountMap[inv.subscriptionId] = (invoiceCountMap[inv.subscriptionId] || 0) + 1;
+            }
+        });
+
         let html = `
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-2xl font-bold">Abonnementen</h2>
@@ -42,6 +51,7 @@ async function loadSubscriptions() {
             html += `
                 <thead class="bg-gray-50">
                     <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nummer</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Klant</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Plan</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Prijs</th>
@@ -59,10 +69,17 @@ async function loadSubscriptions() {
                     sub.status === 'cancelled' ? 'bg-red-100 text-red-800' :
                         'bg-gray-100 text-gray-800';
 
-                const paymentStatusClass = 
+                const linkedCount = invoiceCountMap[sub.id] || 0;
+                const paymentStatusClass =
                     sub.paymentStatus === 'invoiced' ? 'bg-green-100 text-green-800' :
                     sub.paymentStatus === 'upcoming' ? 'bg-orange-100 text-orange-800' :
+                    linkedCount > 0 ? 'bg-blue-100 text-blue-800' :
                     'bg-yellow-100 text-yellow-800';
+                const paymentStatusLabel =
+                    sub.paymentStatus === 'invoiced' ? 'Gefactureerd' :
+                    sub.paymentStatus === 'upcoming' ? 'Binnenkort te factureren' :
+                    linkedCount > 0 ? 'Nieuwe periode' :
+                    'Openstaand';
 
                 const customerName = customerMap[sub.customerId] || sub.customerId;
 
@@ -84,8 +101,34 @@ async function loadSubscriptions() {
 
                 const billingAmount = getBillingAmount(sub.monthlyPrice, billingFrequency, discounts);
 
+                const termsSummary = calcTermsSummary(sub, linkedCount);
+                let facturatieHtml;
+                if (termsSummary && termsSummary.expectedDue > 0) {
+                    if (termsSummary.open > 0) {
+                        let parts = '';
+                        if (termsSummary.pastOpen > 0) {
+                            parts += `<div class="flex items-center gap-1.5 mb-0.5"><i class="fas fa-exclamation-triangle text-red-500 text-xs"></i><span class="text-xs font-semibold text-red-700">${termsSummary.pastOpen} niet gefactureerd</span></div>`;
+                        }
+                        if (termsSummary.currentOpen > 0) {
+                            parts += `<div class="flex items-center gap-1.5 mb-0.5"><i class="fas fa-clock text-orange-500 text-xs"></i><span class="text-xs font-semibold text-orange-600">1 lopende termijn</span></div>`;
+                        }
+                        facturatieHtml = parts + `<div class="text-xs text-gray-500">${termsSummary.invoiced}/${termsSummary.expectedDue} termijnen</div>`;
+                    } else {
+                        facturatieHtml = `<div class="flex items-center gap-1.5 mb-0.5"><i class="fas fa-check-circle text-green-500 text-xs"></i><span class="text-xs font-semibold text-green-700">Alles gefactureerd</span></div><div class="text-xs text-gray-500">${termsSummary.invoiced}/${termsSummary.expectedDue} termijnen</div>`;
+                    }
+                } else {
+                    facturatieHtml = '<span class="text-xs text-gray-400">—</span>';
+                }
+                if (sub.nextInvoiceDate) {
+                    facturatieHtml += `<div class="text-xs text-gray-400 mt-0.5">Volgende: ${formatDate(sub.nextInvoiceDate)}</div>`;
+                }
+
                 html += `
                     <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm">
+                            <span class="font-mono font-medium text-blue-600 hover:text-blue-900 hover:underline cursor-pointer"
+                                  onclick="showEditSubscription('${sub.id}')">${sub.subscriptionNumber || '—'}</span>
+                        </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm">
                             <div class="font-medium">${customerName}</div>
                             <div class="text-xs text-gray-500">Start: ${formatDate(sub.startDate)}</div>
@@ -108,10 +151,7 @@ async function loadSubscriptions() {
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm">${billingFrequencyText}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm">
-                            <span class="px-2 py-1 text-xs font-semibold rounded ${paymentStatusClass}">
-                                ${getPaymentStatusText(sub.paymentStatus)}
-                            </span>
-                            ${sub.nextInvoiceDate ? `<div class="text-xs text-gray-500 mt-1">Volgende: ${formatDate(sub.nextInvoiceDate)}</div>` : ''}
+                            ${facturatieHtml}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm">
                             <span class="px-2 py-1 text-xs font-semibold rounded ${statusClass}">
@@ -130,16 +170,12 @@ async function loadSubscriptions() {
                                            <i class="fas fa-file-invoice"></i>
                                        </button>`;
                             })()}
-                            <button onclick="showSubscriptionPayments('${sub.id}')" 
-                                    class="text-orange-600 hover:text-orange-900 mr-3" title="Betalingen">
-                                <i class="fas fa-history"></i>
-                            </button>
                             <button onclick="showEditSubscription('${sub.id}')" 
-                                    class="text-blue-600 hover:text-blue-900 mr-3">
+                                    class="text-blue-600 hover:text-blue-900 mr-3" title="Abonnement Bewerken">
                                 <i class="fas fa-edit"></i>
                             </button>
                             <button onclick="deleteSubscription('${sub.id}')" 
-                                    class="text-red-600 hover:text-red-900">
+                                    class="text-red-600 hover:text-red-900" title="Abonnement Verwijderen">
                                 <i class="fas fa-trash"></i>
                             </button>
                         </td>
@@ -156,7 +192,7 @@ async function loadSubscriptions() {
     }
 }
 
-function getSubscriptionForm(subscription = null, allSubscriptions = [], customers = [], plans = []) {
+function getSubscriptionForm(subscription = null, allSubscriptions = [], customers = [], plans = [], linkedInvoices = []) {
     const sub = subscription || {};
 
     // For new subscriptions, let backend auto-generate the ID
@@ -175,7 +211,7 @@ function getSubscriptionForm(subscription = null, allSubscriptions = [], custome
         customers.forEach(customer => {
             const selected = sub.customerId === customer.customerId ? 'selected' : '';
             const displayName = customer.business?.displayName || customer.business?.name || customer.customerId;
-            customerOptions += `<option value="${customer.customerId}" ${selected}>${displayName} (${customer.customerId})</option>`;
+            customerOptions += `<option value="${customer.customerId}" ${selected}>${displayName}</option>`;
         });
     }
 
@@ -208,6 +244,11 @@ function getSubscriptionForm(subscription = null, allSubscriptions = [], custome
                 <!-- Hidden fields for existing subscription -->
                 <input type="hidden" id="subscriptionId" value="${subscriptionId}">
                 <input type="hidden" id="customerId" value="${sub.customerId || ''}">
+                <div>
+                    <label class="block text-sm font-medium mb-2">Abonnementsnummer</label>
+                    <input type="text" value="${sub.subscriptionNumber || '—'}" readonly
+                           class="w-full px-3 py-2 border rounded bg-gray-100 font-mono font-medium text-gray-700">
+                </div>
             `}
 
             <div>
@@ -255,11 +296,8 @@ function getSubscriptionForm(subscription = null, allSubscriptions = [], custome
                     </div>
                 </div>
                 <div id="billingAmountInfo" class="text-sm text-gray-600 bg-white p-2 rounded border">
-                    <span id="billingAmountText">Factuurbedrag wordt berekend op basis van frequentie</span>
+                    <span id="billingAmountText">Factuurbedrag wordt berekend op basis van onderhoudsplan en frequentie</span>
                 </div>
-                <p class="text-xs text-gray-600">
-                    <i class="fas fa-info-circle"></i> De prijs wordt automatisch ingevuld bij planselectie
-                </p>
             </div>
 
             ${subscription && sub.paymentStatus ? `
@@ -303,6 +341,28 @@ function getSubscriptionForm(subscription = null, allSubscriptions = [], custome
                           placeholder="Bijzonderheden of opmerkingen..."
                           class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500">${sub.notes || ''}</textarea>
             </div>
+
+            ${subscription ? (() => {
+                const subPlan = plans.find(p => p.planId === sub.planId);
+                const subDiscounts = subPlan ? {
+                    quarterly: subPlan.quarterlyDiscount || 0,
+                    halfyearly: subPlan.halfyearlyDiscount || 0,
+                    yearly: subPlan.yearlyDiscount || 0
+                } : {};
+                const terms = calcExpectedTerms(sub, linkedInvoices, subDiscounts);
+                return `
+                    <div class="border border-gray-200 rounded-lg overflow-hidden">
+                        <div class="px-4 py-2 bg-gray-50 border-b border-gray-200">
+                            <h4 class="font-semibold text-sm text-gray-700 flex items-center gap-2">
+                                <i class="fas fa-tasks text-purple-600"></i>
+                                Termijnen overzicht
+                            </h4>
+                        </div>
+                        <div class="p-3">
+                            ${buildTermsOverviewHtml(terms, subscription.id)}
+                        </div>
+                    </div>`;
+            })() : ''}
         </div>
 
             `;
@@ -400,7 +460,7 @@ function updateBillingAmount() {
 
         billingAmountText.innerHTML = displayText;
     } else {
-        billingAmountText.innerHTML = '<i class="fas fa-info-circle text-gray-500"></i> Factuurbedrag wordt berekend op basis van frequentie';
+        billingAmountText.innerHTML = '<i class="fas fa-info-circle text-gray-500"></i> Factuurbedrag wordt berekend op basis van onderhoudsplan en frequentie';
     }
 }
 
@@ -527,17 +587,23 @@ function showCreateSubscription() {
 
 async function showEditSubscription(id) {
     try {
-        const [subscription, allSubscriptions, customers, plans] = await Promise.all([
+        const [subscription, allSubscriptions, customers, plans, allInvoices] = await Promise.all([
             getById('subscriptions', id),
             getAll('subscriptions'),
             getAll('customers'),
-            getAll('maintenance-plans')
+            getAll('maintenance-plans'),
+            getAll('invoices')
         ]);
 
         // Store plans globally for billing calculations
         globalPlansData = plans || [];
 
-        createModal('Abonnement Bewerken', getSubscriptionForm(subscription, allSubscriptions, customers, plans), async () => {
+        // Filter facturen die aan dit abonnement zijn gekoppeld
+        const linkedInvoices = (allInvoices || [])
+            .filter(inv => inv.invoiceSource === 'subscription' && inv.subscriptionId === id)
+            .sort((a, b) => (b.invoiceDate || '').localeCompare(a.invoiceDate || ''));
+
+        createModal('Abonnement Bewerken', getSubscriptionForm(subscription, allSubscriptions, customers, plans, linkedInvoices), async () => {
             const data = getSubscriptionData();
 
             // Validate form data
@@ -569,7 +635,8 @@ async function deleteSubscription(id) {
         showToast('Abonnement verwijderd', 'success');
         loadSubscriptions();
     } catch (error) {
-        showToast(error.message, 'error');
+        const message = error.message.replace(/^HTTP \d+:\s*/, '').replace(/^"|"$/g, '');
+        showToast(message || error.message, 'error');
     }
 }
 
@@ -670,9 +737,214 @@ function getPaymentStatusText(status) {
     const statusTexts = {
         'invoiced': 'Gefactureerd',
         'upcoming': 'Binnenkort te factureren',
-        'open': 'Niet gefactureerd'
+        'open': 'Openstaand'
     };
     return statusTexts[status] || 'Onbekend';
+}
+
+// Berekent alle verwachte factureringstermijnen voor een abonnement en matcht bestaande facturen
+function calcExpectedTerms(sub, linkedInvoices, discounts) {
+    if (!sub || !sub.startDate) return [];
+    const freq = sub.billingFrequency || 'monthly';
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const endLimit = sub.endDate ? new Date(sub.endDate) : null;
+
+    function addPeriod(date) {
+        const d = new Date(date);
+        switch (freq) {
+            case 'quarterly':  d.setMonth(d.getMonth() + 3); break;
+            case 'halfyearly': d.setMonth(d.getMonth() + 6); break;
+            case 'yearly':     d.setFullYear(d.getFullYear() + 1); break;
+            default:           d.setMonth(d.getMonth() + 1); break;
+        }
+        return d;
+    }
+
+    // Sorteer oplopend: oudste factuur = termijn 1
+    const sortedInvoices = [...(linkedInvoices || [])].sort((a, b) =>
+        (a.invoiceDate || '').localeCompare(b.invoiceDate || ''));
+
+    const terms = [];
+    let periodStart = new Date(sub.startDate);
+    periodStart.setHours(0, 0, 0, 0);
+    let invoiceIndex = 0;
+    let addedFuture = false;
+    const expectedAmount = getBillingAmount(sub.monthlyPrice || 0, freq, discounts || {});
+
+    while (terms.length < 120) {
+        const nextStart = addPeriod(periodStart);
+        const periodEnd = new Date(nextStart);
+        periodEnd.setDate(periodEnd.getDate() - 1);
+
+        if (endLimit && periodStart > endLimit) break;
+
+        const isPast    = nextStart <= today;
+        const isCurrent = periodStart <= today && nextStart > today;
+        const isFuture  = periodStart > today;
+
+        if (isFuture) {
+            if (addedFuture) break;
+            addedFuture = true;
+        }
+
+        const invoice = invoiceIndex < sortedInvoices.length ? sortedInvoices[invoiceIndex] : null;
+        if (invoice) invoiceIndex++;
+
+        let status;
+        if (invoice)        { status = 'invoiced'; }
+        else if (isPast)    { status = 'open'; }
+        else if (isCurrent) { status = 'current'; }
+        else                { status = 'future'; }
+
+        terms.push({ termNumber: terms.length + 1, periodStart, periodEnd, expectedAmount, invoice, status });
+        periodStart = nextStart;
+    }
+    return terms;
+}
+
+// Bouwt de HTML-tabel voor het termijnen overzicht
+// prefillMode = true: knop vult de open datumvelden in de huidige modal in (gebruik vanuit de factuur-genereermodal)
+// prefillMode = false: knop sluit de huidige modal en opent de factuur-genereermodal opnieuw (gebruik vanuit abonnement bewerken)
+function buildTermsOverviewHtml(terms, subscriptionId = null, prefillMode = false) {
+    if (!terms || terms.length === 0) {
+        return '<div class="text-center py-3 text-gray-400 text-sm italic">Geen termijnen berekend</div>';
+    }
+    const invoicedCount = terms.filter(t => t.status === 'invoiced').length;
+    const openCount     = terms.filter(t => t.status === 'open').length;
+    const currentCount  = terms.filter(t => t.status === 'current').length;
+    const relevantCount = terms.filter(t => t.status !== 'future').length;
+
+    let summaryClass, summaryIcon, summaryText;
+    if (openCount > 0) {
+        summaryClass = 'bg-red-100 text-red-800 border border-red-300';
+        summaryIcon  = 'exclamation-triangle';
+        summaryText  = `${openCount} verstreken termijn${openCount > 1 ? 'en' : ''} niet gefactureerd!`;
+    } else if (currentCount > 0) {
+        summaryClass = 'bg-orange-100 text-orange-800 border border-orange-300';
+        summaryIcon  = 'clock';
+        summaryText  = 'Huidige periode nog niet gefactureerd';
+    } else if (invoicedCount > 0) {
+        summaryClass = 'bg-green-100 text-green-800 border border-green-300';
+        summaryIcon  = 'check-circle';
+        summaryText  = `Alle ${invoicedCount} termijn${invoicedCount !== 1 ? 'en' : ''} gefactureerd`;
+    } else {
+        summaryClass = 'bg-gray-100 text-gray-600 border border-gray-200';
+        summaryIcon  = 'info-circle';
+        summaryText  = 'Nog geen termijnen verschuldigd';
+    }
+
+    const rows = terms.map(term => {
+        let statusBadge, rowClass;
+        if (term.status === 'invoiced') {
+            statusBadge = '<span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded bg-green-100 text-green-800"><i class="fas fa-check"></i> Gefactureerd</span>';
+            rowClass = '';
+        } else if (term.status === 'open') {
+            statusBadge = '<span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded bg-red-100 text-red-800"><i class="fas fa-exclamation-triangle"></i> Openstaand</span>';
+            rowClass = 'bg-red-50';
+        } else if (term.status === 'current') {
+            statusBadge = '<span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded bg-orange-100 text-orange-800"><i class="fas fa-clock"></i> Lopende periode</span>';
+            rowClass = 'bg-orange-50';
+        } else {
+            statusBadge = '<span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded bg-gray-100 text-gray-500"><i class="fas fa-calendar"></i> Toekomst</span>';
+            rowClass = 'opacity-50';
+        }
+
+        const invoiceCell = term.invoice
+            ? `<span class="text-blue-600 hover:underline cursor-pointer font-mono text-xs" onclick="closeAllModals(); setTimeout(() => showEditInvoice('${term.invoice.id}'), 300)">${term.invoice.invoiceNumber || 'N/A'}</span>`
+            : '<span class="text-gray-400 text-xs">—</span>';
+
+        const invoiceAmount = term.invoice
+            ? formatCurrency(term.invoice.totalAmount)
+            : `<span class="text-gray-400">${formatCurrency(term.expectedAmount)}</span>`;
+
+        const periodStartStr = term.periodStart instanceof Date ? term.periodStart.toISOString().split('T')[0] : '';
+        const periodEndStr   = term.periodEnd   instanceof Date ? term.periodEnd.toISOString().split('T')[0]   : '';
+        let actionCell = '<td class="px-3 py-2 text-xs"></td>';
+        if (subscriptionId && (term.status === 'open' || term.status === 'current')) {
+            const onclickHandler = prefillMode
+                ? `document.getElementById('genPeriodStart').value='${periodStartStr}'; document.getElementById('genPeriodEnd').value='${periodEndStr}';`
+                : `closeAllModals(); setTimeout(() => showGenerateInvoiceFromSubscription('${subscriptionId}', '${periodStartStr}', '${periodEndStr}'), 300);`;
+            actionCell = `<td class="px-3 py-2 text-xs">
+                <button onclick="${onclickHandler}"
+                        class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded text-purple-800 hover:text-purple-600 border-0 cursor-pointer">
+                    <i class="fa-regular fa-calendar"></i> Gebruik periode
+                </button>
+            </td>`;
+        } else if (subscriptionId) {
+            actionCell = '<td class="px-3 py-2 text-xs"></td>';
+        }
+
+        return `<tr class="${rowClass}">
+                <td class="px-3 py-2 text-xs font-medium text-gray-500 text-center w-8">${term.termNumber}</td>
+                <td class="px-3 py-2 text-xs text-gray-700 whitespace-nowrap">${formatDate(term.periodStart)} – ${formatDate(term.periodEnd)}</td>
+                <td class="px-3 py-2 text-xs font-medium">${invoiceAmount}</td>
+                <td class="px-3 py-2 text-xs">${invoiceCell}</td>
+                <td class="px-3 py-2 text-xs">${statusBadge}</td>
+                ${subscriptionId ? actionCell : ''}
+            </tr>`;
+    }).join('');
+
+    return `<div class="flex items-center justify-between mb-2 px-1">
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded ${summaryClass}">
+                <i class="fas fa-${summaryIcon}"></i> ${summaryText}
+            </span>
+            ${relevantCount > 0 ? `<span class="text-xs text-gray-500">${invoicedCount} van ${relevantCount} gefactureerd</span>` : ''}
+        </div>
+        <div class="overflow-x-auto rounded border border-gray-200">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase w-8">#</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Periode</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Bedrag</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Factuur</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                        ${subscriptionId ? '<th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Acties</th>' : ''}
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-100">${rows}</tbody>
+            </table>
+        </div>`;
+}
+
+// Berekent een snelle samenvatting voor de lijstweergave (hoeveel termijnen verwacht vs gefactureerd)
+function calcTermsSummary(sub, invoicedCount) {
+    if (!sub || !sub.startDate) return null;
+    const freq = sub.billingFrequency || 'monthly';
+    const start = new Date(sub.startDate);
+    start.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const endLimit = sub.endDate ? new Date(sub.endDate) : null;
+
+    function addPeriod(date) {
+        const d = new Date(date);
+        switch (freq) {
+            case 'quarterly':  d.setMonth(d.getMonth() + 3); break;
+            case 'halfyearly': d.setMonth(d.getMonth() + 6); break;
+            case 'yearly':     d.setFullYear(d.getFullYear() + 1); break;
+            default:           d.setMonth(d.getMonth() + 1); break;
+        }
+        return d;
+    }
+
+    let expectedDue = 0;
+    let periodStart = new Date(start);
+    let lastPeriodStart = null;
+    while (periodStart <= today && expectedDue < 120) {
+        if (endLimit && periodStart > endLimit) break;
+        lastPeriodStart = new Date(periodStart);
+        expectedDue++;
+        periodStart = addPeriod(periodStart);
+    }
+
+    const hasCurrentPeriod = lastPeriodStart !== null && addPeriod(lastPeriodStart) > today;
+    const invoiced = Math.min(invoicedCount, expectedDue);
+    const open = expectedDue - invoiced;
+    const currentOpen = (hasCurrentPeriod && open > 0) ? 1 : 0;
+    const pastOpen = open - currentOpen;
+    return { expectedDue, invoiced, open, pastOpen, currentOpen };
 }
 
 // Show subscription payments
@@ -717,7 +989,7 @@ async function showSubscriptionPayments(subscriptionId) {
                     <tr>
                         <td class="px-6 py-4 whitespace-nowrap text-sm">${formatDate(payment.paymentDate)}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">${formatCurrency(payment.amount)}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm">${payment.method || 'N/A'}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm">${formatPaymentMethod(payment.method)}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm">
                             ${payment.billingPeriodStart ? `${formatDate(payment.billingPeriodStart)} - ${formatDate(payment.billingPeriodEnd)}` : 'N/A'}
                         </td>
@@ -865,32 +1137,87 @@ async function showAddSubscriptionPayment(subscriptionId) {
                     }
                 }
 
-                async function showGenerateInvoiceFromSubscription(subscriptionId) {
-                    const today = getTodayDate();
-                    const endOfMonth = (() => {
-                        const d = new Date();
-                        d.setMonth(d.getMonth() + 1, 0);
+                async function showGenerateInvoiceFromSubscription(subscriptionId, prefillStart = null, prefillEnd = null) {
+                    const [subscription, allInvoices, allPlans] = await Promise.all([
+                        getById('subscriptions', subscriptionId),
+                        getAll('invoices'),
+                        getAll('maintenance-plans')
+                    ]);
+                    const billingFrequency = subscription?.billingFrequency || 'monthly';
+
+                    // Filter facturen die aan dit abonnement zijn gekoppeld (oplopend op datum = termijn 1 eerst)
+                    const linkedInvoices = (allInvoices || [])
+                        .filter(inv => inv.invoiceSource === 'subscription' && inv.subscriptionId === subscriptionId)
+                        .sort((a, b) => (a.invoiceDate || '').localeCompare(b.invoiceDate || ''));
+
+                    const genPlan = (allPlans || []).find(p => p.planId === subscription?.planId);
+                    const genDiscounts = genPlan ? {
+                        quarterly: genPlan.quarterlyDiscount || 0,
+                        halfyearly: genPlan.halfyearlyDiscount || 0,
+                        yearly: genPlan.yearlyDiscount || 0
+                    } : {};
+                    const genTerms = calcExpectedTerms(subscription, linkedInvoices, genDiscounts);
+                    const termsOverviewHtml = buildTermsOverviewHtml(genTerms, subscriptionId, true);
+
+                    function calcPeriodEnd(startDateStr, frequency) {
+                        const d = new Date(startDateStr);
+                        switch (frequency) {
+                            case 'quarterly':  d.setMonth(d.getMonth() + 3); break;
+                            case 'halfyearly': d.setMonth(d.getMonth() + 6); break;
+                            case 'yearly':     d.setFullYear(d.getFullYear() + 1); break;
+                            default:           d.setMonth(d.getMonth() + 1); break;
+                        }
                         return d.toISOString().split('T')[0];
-                    })();
+                    }
+
+                    const today = getTodayDate();
+                    const initialPeriodEnd = calcPeriodEnd(today, billingFrequency);
+
+                    const billingFrequencyText = {
+                        monthly:    'Maandelijks',
+                        quarterly:  'Kwartaal',
+                        halfyearly: 'Halfjaarlijks',
+                        yearly:     'Jaarlijks'
+                    }[billingFrequency] || 'Maandelijks';
 
                     const formHtml = `
                         <div class="space-y-4">
+                            <!-- Abonnementinformatie -->
+                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-sm">
+                                <div>
+                                    <p class="text-xs text-gray-500 mb-0.5">Plan</p>
+                                    <p class="font-medium">${subscription?.planName || '—'}</p>
+                                </div>
+                                <div>
+                                    <p class="text-xs text-gray-500 mb-0.5">Frequentie</p>
+                                    <p class="font-medium">${billingFrequencyText}</p>
+                                </div>
+                                <div>
+                                    <p class="text-xs text-gray-500 mb-0.5">Startdatum</p>
+                                    <p class="font-medium">${formatDate(subscription?.startDate)}</p>
+                                </div>
+                                <div>
+                                    <p class="text-xs text-gray-500 mb-0.5">Einddatum</p>
+                                    <p class="font-medium">${subscription?.endDate ? formatDate(subscription.endDate) : '—'}</p>
+                                </div>
+                            </div>
+
+                            <!-- Nieuwe factuur genereren -->
                             <div class="bg-purple-50 border border-purple-200 rounded-lg p-3">
                                 <p class="text-sm text-purple-800">
                                     <i class="fas fa-info-circle mr-2"></i>
                                     Er wordt een factuur aangemaakt met één regel voor de opgegeven facturatieperiode.
-                                    De <strong>NextInvoiceDate</strong> van het abonnement wordt automatisch bijgewerkt.
                                 </p>
                             </div>
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-sm font-medium mb-2">Periode van<span class="text-red-600 ml-1">*</span></label>
-                                    <input type="date" id="genPeriodStart" value="${today}"
-                                           class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-purple-500">
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium mb-2">Periode tot<span class="text-red-600 ml-1">*</span></label>
-                                    <input type="date" id="genPeriodEnd" value="${endOfMonth}"
+                                       <input type="date" id="genPeriodStart" value="${prefillStart || today}"
+                                               class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-purple-500">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-2">Periode tot<span class="text-red-600 ml-1">*</span></label>
+                                        <input type="date" id="genPeriodEnd" value="${prefillEnd || initialPeriodEnd}"
                                            class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-purple-500">
                                 </div>
                             </div>
@@ -917,14 +1244,28 @@ async function showAddSubscriptionPayment(subscriptionId) {
                                           class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-purple-500"
                                           placeholder="Extra toelichting op de factuur..."></textarea>
                             </div>
+
+                            <!-- Termijnen overzicht -->
+                            <div class="border border-gray-200 rounded-lg overflow-hidden">
+                                <div class="px-4 py-2 bg-gray-50 border-b border-gray-200">
+                                    <h4 class="font-semibold text-sm text-gray-700 flex items-center gap-2">
+                                        <i class="fas fa-tasks text-purple-600"></i>
+                                        Termijnen overzicht
+                                    </h4>
+                                </div>
+                                <div class="p-3">
+                                    ${termsOverviewHtml}
+                                </div>
+                            </div>
                         </div>
                     `;
 
-                    createModal('Factuur Genereren vanuit Abonnement', formHtml, async () => {
+                    const genModal = createModal('Factuur Genereren vanuit Abonnement', formHtml, async () => {
                         const periodStart    = document.getElementById('genPeriodStart').value;
                         const periodEnd      = document.getElementById('genPeriodEnd').value;
                         const dueDate        = document.getElementById('genDueDate').value;
-                        const vatPercentage  = parseFloat(document.getElementById('genVatPercentage').value) || 21;
+                        const vatRaw         = parseFloat(document.getElementById('genVatPercentage').value);
+                        const vatPercentage  = isNaN(vatRaw) ? 21 : vatRaw;
                         const notes          = document.getElementById('genNotes').value.trim();
 
                         if (!periodStart || !periodEnd) throw new Error('Facturatieperiode is verplicht');
@@ -941,5 +1282,9 @@ async function showAddSubscriptionPayment(subscriptionId) {
 
                         showToast(`Factuur ${invoice?.invoiceNumber || ''} aangemaakt`, 'success');
                         loadSubscriptions();
-                    }, 'Factuur Genereren', 'sm');
+                    }, 'Factuur Genereren', 'lg');
+
+                    genModal.querySelector('#genPeriodStart').addEventListener('change', function () {
+                        genModal.querySelector('#genPeriodEnd').value = calcPeriodEnd(this.value, billingFrequency);
+                    });
                 }

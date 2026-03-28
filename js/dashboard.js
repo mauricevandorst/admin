@@ -130,6 +130,66 @@ function calculateStats(customers, invoices, payments, subscriptions, orders) {
         .filter(o => o.status === 'confirmed')
         .reduce((sum, o) => sum + (o.totalAmount || 0), 0);
 
+    // Subscription billing alerts
+    const invoicesBySubscription = {};
+    safeInvoices.forEach(inv => {
+        if (inv.invoiceSource === 'subscription' && inv.subscriptionId) {
+            invoicesBySubscription[inv.subscriptionId] = (invoicesBySubscription[inv.subscriptionId] || 0) + 1;
+        }
+    });
+    function calcSubTermsSummary(sub, invoicedCount) {
+        if (!sub || !sub.startDate) return null;
+        const freq = sub.billingFrequency || 'monthly';
+        const start = new Date(sub.startDate);
+        start.setHours(0, 0, 0, 0);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const endLimit = sub.endDate ? new Date(sub.endDate) : null;
+        function addPeriod(d) {
+            const r = new Date(d);
+            switch (freq) {
+                case 'quarterly': r.setMonth(r.getMonth() + 3); break;
+                case 'halfyearly': r.setMonth(r.getMonth() + 6); break;
+                case 'yearly': r.setFullYear(r.getFullYear() + 1); break;
+                default: r.setMonth(r.getMonth() + 1);
+            }
+            return r;
+        }
+        let expectedDue = 0;
+        let ps = new Date(start);
+        let lastPs = null;
+        while (ps <= today && expectedDue < 120) {
+            if (endLimit && ps > endLimit) break;
+            lastPs = new Date(ps);
+            expectedDue++;
+            ps = addPeriod(ps);
+        }
+        const hasCurrentPeriod = lastPs !== null && addPeriod(lastPs) > today;
+        const invoiced = Math.min(invoicedCount, expectedDue);
+        const open = expectedDue - invoiced;
+        const currentOpen = (hasCurrentPeriod && open > 0) ? 1 : 0;
+        const pastOpen = open - currentOpen;
+        return { expectedDue, invoiced, open, pastOpen, currentOpen };
+    }
+    const UPCOMING_DAYS = 14;
+    const subscriptionsWithOpenTerms = [];
+    const subscriptionsUpcomingBilling = [];
+    (subscriptions || []).filter(s => s.status === 'active').forEach(sub => {
+        const linkedCount = invoicesBySubscription[sub.id] || 0;
+        const summary = calcSubTermsSummary(sub, linkedCount);
+        if (summary && summary.open > 0) {
+            subscriptionsWithOpenTerms.push({ sub, open: summary.open, invoiced: summary.invoiced, expectedDue: summary.expectedDue, pastOpen: summary.pastOpen, currentOpen: summary.currentOpen });
+        } else if (sub.nextInvoiceDate) {
+            const nextDate = new Date(sub.nextInvoiceDate);
+            const today2 = new Date();
+            today2.setHours(0, 0, 0, 0);
+            const daysUntil = Math.ceil((nextDate - today2) / (1000 * 60 * 60 * 24));
+            if (daysUntil >= 0 && daysUntil <= UPCOMING_DAYS) {
+                subscriptionsUpcomingBilling.push({ sub, daysUntil });
+            }
+        }
+    });
+
     return {
         totalCustomers,
         totalInvoices,
@@ -154,7 +214,9 @@ function calculateStats(customers, invoices, payments, subscriptions, orders) {
         confirmedOrders,
         invoicedOrders,
         cancelledOrders,
-        pendingOrderAmount
+        pendingOrderAmount,
+        subscriptionsWithOpenTerms,
+        subscriptionsUpcomingBilling
     };
 }
 
@@ -192,6 +254,9 @@ function renderDashboard(stats, invoices, payments, subscriptions, customers, or
 
             <!-- Alerts -->
             ${renderAlerts(stats)}
+
+            <!-- Abonnement facturatie panel -->
+            ${renderSubscriptionBillingPanel(stats, customers)}
 
             <!-- Main grid -->
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -343,6 +408,39 @@ function renderAlerts(stats) {
         });
     }
 
+    if (stats.subscriptionsWithOpenTerms?.length > 0) {
+        const pastOpenCount = stats.subscriptionsWithOpenTerms.filter(x => x.pastOpen > 0).length;
+        const currentOnlyOpenCount = stats.subscriptionsWithOpenTerms.filter(x => x.pastOpen === 0 && x.currentOpen > 0).length;
+        if (pastOpenCount > 0) {
+            alerts.push({
+                type: 'error',
+                icon: 'file-invoice-dollar',
+                message: `${pastOpenCount} abonnement${pastOpenCount > 1 ? 'en hebben' : ' heeft'} niet-gefactureerde termijnen`,
+                action: 'Bekijk →',
+                actionFn: 'switchTab("subscriptions")'
+            });
+        }
+        if (currentOnlyOpenCount > 0) {
+            alerts.push({
+                type: 'warning',
+                icon: 'file-invoice-dollar',
+                message: `${currentOnlyOpenCount} abonnement${currentOnlyOpenCount > 1 ? 'en hebben' : ' heeft'} een lopende termijn nog niet gefactureerd`,
+                action: 'Bekijk →',
+                actionFn: 'switchTab("subscriptions")'
+            });
+        }
+    }
+
+    if (stats.subscriptionsUpcomingBilling?.length > 0) {
+        alerts.push({
+            type: 'warning',
+            icon: 'calendar-check',
+            message: `${stats.subscriptionsUpcomingBilling.length} abonnement${stats.subscriptionsUpcomingBilling.length > 1 ? 'en' : ''} te factureren binnen 14 dagen`,
+            action: 'Bekijk →',
+            actionFn: 'switchTab("subscriptions")'
+        });
+    }
+
     if (stats.expiringSubscriptions > 0) {
         alerts.push({
             type: 'warning',
@@ -412,7 +510,7 @@ function renderRecentInvoices(invoices, customers) {
             return `
                 <div class="recent-list-row">
                     <div class="min-w-0 flex-1">
-                        <p class="recent-list-label truncate">${invoice.invoiceNumber}</p>
+                        <button onclick="showEditInvoice('${invoice.id}')" class="recent-list-label truncate block text-left bg-transparent border-none p-0 cursor-pointer hover:underline">${invoice.invoiceNumber}</button>
                         <p class="recent-list-sub truncate">${name}</p>
                     </div>
                     <div class="flex items-center gap-3 ml-3 shrink-0">
@@ -461,7 +559,10 @@ function renderRecentPayments(payments, invoices, customers) {
             return `
                 <div class="recent-list-row">
                     <div class="min-w-0 flex-1">
-                        <p class="recent-list-label truncate">${payment.invoiceNumber || 'N/A'}</p>
+                        ${invoice?.id
+                            ? `<button onclick="showEditInvoice('${invoice.id}')" class="recent-list-label truncate block text-left bg-transparent border-none p-0 cursor-pointer hover:underline">${payment.invoiceNumber || 'N/A'}</button>`
+                            : `<p class="recent-list-label truncate">${payment.invoiceNumber || 'N/A'}</p>`
+                        }
                         <p class="recent-list-sub truncate">${name}</p>
                     </div>
                     <div class="text-right ml-3 shrink-0">
@@ -510,7 +611,7 @@ function renderRecentOrders(orders, customers) {
             return `
                 <div class="recent-list-row">
                     <div class="min-w-0 flex-1">
-                        <p class="recent-list-label truncate">${order.orderNumber}</p>
+                        <button onclick="showEditOrder('${order.id}')" class="recent-list-label truncate block text-left bg-transparent border-none p-0 cursor-pointer hover:underline">${order.orderNumber}</button>
                         <p class="recent-list-sub truncate">${name}</p>
                     </div>
                     <div class="flex items-center gap-3 ml-3 shrink-0">
@@ -531,6 +632,73 @@ function renderRecentOrders(orders, customers) {
                 <button onclick="switchTab('orders')" class="link-action">Bekijk alle →</button>
             </div>
             ${rows}
+        </div>
+    `;
+}
+
+function renderSubscriptionBillingPanel(stats, customers) {
+    const openItems = stats.subscriptionsWithOpenTerms || [];
+    const upcomingItems = stats.subscriptionsUpcomingBilling || [];
+
+    if (openItems.length === 0 && upcomingItems.length === 0) return '';
+
+    function subName(sub) {
+        const customer = customers?.find(c => c.customerId === sub.customerId);
+        return customer?.business?.displayName || customer?.business?.name || sub.customerId || 'Onbekend';
+    }
+
+    const openRows = openItems.slice(0, 5).map(({ sub, open, invoiced, expectedDue, pastOpen, currentOpen }) => {
+        let amountLines = '';
+        if (pastOpen > 0) {
+            amountLines += `<p class="recent-list-amount" style="color:#dc2626">${pastOpen} niet gefactureerd</p>`;
+        }
+        if (currentOpen > 0) {
+            amountLines += `<p class="recent-list-amount" style="color:#d97706">1 lopende termijn</p>`;
+        }
+        return `
+        <div class="recent-list-row">
+            <div class="min-w-0 flex-1">
+                <button onclick="switchTab('subscriptions'); setTimeout(() => showEditSubscription('${sub.id}'), 300);" class="recent-list-label truncate block text-left bg-transparent border-none p-0 cursor-pointer hover:underline">${sub.subscriptionNumber || sub.id}</button>
+                <p class="recent-list-sub truncate">${subName(sub)}</p>
+            </div>
+            <div class="text-right ml-3 shrink-0">
+                ${amountLines}
+                <p class="recent-list-meta">${invoiced}/${expectedDue} gefactureerd</p>
+            </div>
+        </div>
+    `;
+    }).join('');
+
+    const upcomingRows = upcomingItems.slice(0, 5).map(({ sub, daysUntil }) => `
+        <div class="recent-list-row">
+            <div class="min-w-0 flex-1">
+                <button onclick="switchTab('subscriptions'); setTimeout(() => showGenerateInvoiceFromSubscription('${sub.id}'), 300);" class="recent-list-label truncate block text-left bg-transparent border-none p-0 cursor-pointer hover:underline">${sub.subscriptionNumber || sub.id}</button>
+                <p class="recent-list-sub truncate">${subName(sub)}</p>
+            </div>
+            <div class="text-right ml-3 shrink-0">
+                <p class="recent-list-amount" style="color:#d97706">${daysUntil === 0 ? 'Vandaag' : `Nog ${daysUntil} dag${daysUntil !== 1 ? 'en' : ''}`}</p>
+                <p class="recent-list-meta">Volgende factuurdatum</p>
+            </div>
+        </div>
+    `).join('');
+
+    return `
+        <div class="card-compact">
+            <div class="card-compact-header">
+                <span><i class="fas fa-exclamation-circle" style="color:#dc2626"></i> Abonnement facturatie</span>
+                <button onclick="switchTab('subscriptions')" class="link-action">Beheer abonnementen →</button>
+            </div>
+            ${openItems.length > 0 ? `
+                <p class="text-xs font-semibold uppercase tracking-widest mb-2 mt-1" style="color:#dc2626">Openstaande termijnen</p>
+                ${openRows}
+                ${openItems.length > 5 ? `<p class="text-xs text-gray-400 text-center pt-2">+${openItems.length - 5} meer</p>` : ''}
+            ` : ''}
+            ${upcomingItems.length > 0 ? `
+                ${openItems.length > 0 ? '<div class="border-t border-gray-100 my-3"></div>' : ''}
+                <p class="text-xs font-semibold uppercase tracking-widest mb-2" style="color:#d97706">Binnenkort te factureren</p>
+                ${upcomingRows}
+                ${upcomingItems.length > 5 ? `<p class="text-xs text-gray-400 text-center pt-2">+${upcomingItems.length - 5} meer</p>` : ''}
+            ` : ''}
         </div>
     `;
 }

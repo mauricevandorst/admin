@@ -281,6 +281,21 @@ function formatCurrency(amount, currency = 'EUR') {
     }).format(amount);
 }
 
+function formatPaymentMethod(method) {
+    const labels = {
+        bank_transfer: 'Bankoverschrijving',
+        direct_debit:  'Automatische incasso',
+        sepa:          'SEPA incasso',
+        cash:          'Contant',
+        card:          'Pinpas/Creditcard',
+        credit_card:   'Creditcard',
+        ideal:         'iDEAL',
+        paypal:        'PayPal',
+        other:         'Overig'
+    };
+    return labels[method] || method || 'N/A';
+}
+
 // Generate a new GUID
 function generateGuid() {
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {

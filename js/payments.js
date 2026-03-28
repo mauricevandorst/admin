@@ -74,7 +74,7 @@ async function loadPayments() {
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm">${formatDate(payment.date)}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">${formatCurrency(payment.amount)}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm">${payment.method || 'N/A'}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm">${formatPaymentMethod(payment.method)}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm">
                             ${payment.type === 'Invoice' ? 
                                 `<button onclick="switchTab('invoices'); setTimeout(() => showInvoiceDetails('${payment.invoiceId}'), 300);" 
