@@ -23,6 +23,30 @@ function isLoggedIn() {
     return getSession() !== null;
 }
 
+// Role checking functions
+function getUserRole() {
+    const session = getSession();
+    // Support both camelCase 'role' and PascalCase 'Role' for backward compatibility
+    return session?.role || session?.Role || 'Gast';
+}
+
+function hasRole(allowedRoles) {
+    const userRole = getUserRole();
+    return allowedRoles.includes(userRole);
+}
+
+function canEdit() {
+    return hasRole(['Admin', 'AdministratiefMedewerker']);
+}
+
+function canDelete() {
+    return hasRole(['Admin']);
+}
+
+function canViewSensitive() {
+    return hasRole(['Admin', 'AdministratiefMedewerker', 'Medewerker']);
+}
+
 // Show/hide the login screen
 function showLoginScreen() {
     document.getElementById('loginScreen').classList.remove('hidden');
@@ -98,7 +122,7 @@ function updateNavUserInfo(userProfile) {
 
     const usersNavItem = document.getElementById('nav-users-wrapper');
     if (usersNavItem) {
-        if (userProfile.isAdmin) {
+        if (hasRole(['Admin'])) {
             usersNavItem.classList.remove('hidden');
         } else {
             usersNavItem.classList.add('hidden');
@@ -106,7 +130,7 @@ function updateNavUserInfo(userProfile) {
     }
     const mobileUsersBtn = document.getElementById('mobile-nav-users');
     if (mobileUsersBtn) {
-        if (userProfile.isAdmin) {
+        if (hasRole(['Admin'])) {
             mobileUsersBtn.classList.remove('hidden');
         } else {
             mobileUsersBtn.classList.add('hidden');

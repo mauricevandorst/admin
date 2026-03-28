@@ -3,17 +3,33 @@ async function loadCustomers() {
     try {
         const customers = await getAll('customers');
         
+        // Filter sensitive data for Gast role
+        const displayCustomers = canViewSensitive() ? customers : (customers || []).map(c => ({
+            ...c,
+            contact: {
+                name: '***',
+                emailAddress: '***',
+                phoneNumber: '***'
+            },
+            business: {
+                ...c.business,
+                emailAddress: '***'
+            }
+        }));
+        
         let html = `
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-2xl font-bold">Klanten</h2>
+                ${canEdit() ? `
                 <button onclick="showCreateCustomer()" 
                         class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded">
                     <i class="fas fa-plus"></i> Nieuwe Klant
                 </button>
+                ` : ''}
             </div>
         `;
         
-        if (!customers || customers.length === 0) {
+        if (!displayCustomers || displayCustomers.length === 0) {
             html += '<p class="text-gray-500 text-center py-8">Geen klanten gevonden</p>';
         } else {
             html += '<div class="overflow-x-auto"><table class="min-w-full divide-y divide-gray-200">';
@@ -30,7 +46,7 @@ async function loadCustomers() {
                 <tbody class="bg-white divide-y divide-gray-200">
             `;
             
-            customers.forEach(customer => {
+            displayCustomers.forEach(customer => {
                 html += `
                     <tr class="hover:bg-gray-50">
                         <td class="px-6 py-4 whitespace-nowrap text-sm">${customer.business?.displayName || 'N/A'}</td>
@@ -38,14 +54,18 @@ async function loadCustomers() {
                         <td class="px-6 py-4 whitespace-nowrap text-sm">${customer.contact?.emailAddress || 'N/A'}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm">${customer.contact?.phoneNumber || 'N/A'}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            ${canEdit() ? `
                             <button onclick="showEditCustomer('${customer.id}')" 
                                     class="text-blue-600 hover:text-blue-900 mr-3">
                                 <i class="fas fa-edit"></i>
                             </button>
+                            ` : ''}
+                            ${canDelete() ? `
                             <button onclick="deleteCustomer('${customer.id}')" 
                                     class="text-red-600 hover:text-red-900">
                                 <i class="fas fa-trash"></i>
                             </button>
+                            ` : ''}
                         </td>
                     </tr>
                 `;

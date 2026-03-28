@@ -1,4 +1,22 @@
 // UI Helper functions
+
+// Role-based button generator
+function renderActionButton(config) {
+    if (config.requireRole && !hasRole(config.requireRole)) {
+        return '';
+    }
+    if (config.requireEdit && !canEdit()) {
+        return '';
+    }
+    if (config.requireDelete && !canDelete()) {
+        return '';
+    }
+    const classNames = config.class || 'text-blue-600 hover:text-blue-900 mr-3';
+    const onclick = config.onclick ? `onclick="${config.onclick}"` : '';
+    const title = config.title ? `title="${config.title}"` : '';
+    return `<button ${onclick} class="${classNames}" ${title}><i class="fas fa-${config.icon}"></i></button>`;
+}
+
 function showToast(message, type = 'info') {
     const toast = document.getElementById('toast');
     const toastIcon = document.getElementById('toastIcon');

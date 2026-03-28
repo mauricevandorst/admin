@@ -29,7 +29,8 @@ function buildInvoiceTableRows(invoices, customers) {
         const itemsCount = invoice.items?.length || 0;
         const itemsText = itemsCount > 0 ? `${itemsCount} regel${itemsCount > 1 ? 's' : ''}` : 'Geen regels';
 
-        const paymentButton = actualStatus !== 'paid' ? `
+        // Hide payment buttons for guests and read-only users
+        const paymentButton = (actualStatus !== 'paid' && canEdit()) ? `
             <button onclick="showCreatePaymentForInvoice('${invoice.id}')" 
                     class="text-green-600 hover:text-green-900 mr-3" 
                     title="Registreer betaling">
@@ -37,7 +38,8 @@ function buildInvoiceTableRows(invoices, customers) {
             </button>
         ` : '';
 
-        const paymentInfo = actualStatus === 'partially_paid' ? `
+        // Hide payment info for guests
+        const paymentInfo = (actualStatus === 'partially_paid' && canViewSensitive()) ? `
             <div class="text-xs text-gray-600 mt-1">
                 <div class="flex items-center gap-2">
                     <div class="w-20 bg-gray-200 rounded-full h-2">
@@ -90,14 +92,18 @@ function buildInvoiceTableRows(invoices, customers) {
                             title="Factuur downloaden als PDF">
                         <i class="fas fa-file-download"></i>
                     </button>
+                    ${canEdit() ? `
                     <button onclick="showEditInvoice('${invoice.id}')" 
                             class="text-blue-600 hover:text-blue-900 mr-3">
                         <i class="fas fa-edit"></i>
                     </button>
+                    ` : ''}
+                    ${canDelete() ? `
                     <button onclick="deleteInvoice('${invoice.id}')" 
                             class="text-red-600 hover:text-red-900">
                         <i class="fas fa-trash"></i>
                     </button>
+                    ` : ''}
                 </td>
             </tr>
         `;
@@ -152,10 +158,12 @@ async function loadInvoices() {
         let html = `
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-2xl font-bold">Facturen</h2>
+                ${canEdit() ? `
                 <button onclick="showCreateInvoice()" 
                         class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded">
                     <i class="fas fa-plus"></i> Nieuwe Factuur
                 </button>
+                ` : ''}
             </div>
         `;
 
@@ -452,6 +460,7 @@ function getInvoiceFormWithPayments(invoice, allInvoices, customers, payments, t
 
 // Generate a single invoice item row
 function getInvoiceItemRow(index, item = {}) {
+    const title = item.title || item.description || '';
     const description = item.description || '';
     const quantity = item.quantity || 1;
     const unitPrice = item.unitPrice || 0;
@@ -461,13 +470,19 @@ function getInvoiceItemRow(index, item = {}) {
         <div class="invoice-item bg-white p-3 rounded border" data-index="${index}">
             <div class="grid grid-cols-2 sm:grid-cols-12 gap-2 items-start">
                 <div class="col-span-2 sm:col-span-5">
-                    <label class="block text-xs font-medium mb-1">Beschrijving<span class="text-red-600 ml-1">*</span></label>
+                    <label class="block text-xs font-medium mb-1">Titel<span class="text-red-600 ml-1">*</span></label>
                     <input type="text" 
-                           class="item-description w-full px-2 py-1 border rounded text-sm" 
-                           value="${description}"
-                           placeholder="Product of dienst..."
+                           class="item-title w-full px-2 py-1 border rounded text-sm font-medium" 
+                           value="${title}"
+                           placeholder="Korte titel van dienst/product..."
                            onchange="calculateInvoiceTotals()"
                            required>
+                    <label class="block text-xs font-medium mb-1 mt-2">Beschrijving <span class="text-xs text-gray-500">(optioneel)</span></label>
+                    <textarea 
+                           class="item-description w-full px-2 py-1 border rounded text-sm text-gray-600" 
+                           placeholder="Extra details..."
+                           rows="2"
+                           onchange="calculateInvoiceTotals()">${description}</textarea>
                 </div>
                 <div class="col-span-1 sm:col-span-2">
                     <label class="block text-xs font-medium mb-1">Aantal<span class="text-red-600 ml-1">*</span></label>
@@ -642,6 +657,7 @@ function getInvoiceData() {
     let vatTotal = 0;
 
     itemElements.forEach(itemEl => {
+        const title = itemEl.querySelector('.item-title').value.trim();
         const description = itemEl.querySelector('.item-description').value.trim();
         const quantity = parseFloat(itemEl.querySelector('.item-quantity').value) || 0;
         const unitPrice = parseFloat(itemEl.querySelector('.item-price').value) || 0;
@@ -652,6 +668,7 @@ function getInvoiceData() {
         vatTotal += amount * (vatPercentage / 100);
 
         items.push({
+            title,
             description,
             quantity,
             unitPrice,
@@ -734,14 +751,14 @@ function validateInvoiceData(data) {
         data.items.forEach((item, index) => {
             const itemElement = document.querySelectorAll('.invoice-item')[index];
 
-            if (!item.description || item.description.trim().length === 0) {
+            if (!item.title || item.title.trim().length === 0) {
                 hasItemErrors = true;
-                const descInput = itemElement.querySelector('.item-description');
-                descInput.classList.add('error');
+                const titleInput = itemElement.querySelector('.item-title');
+                titleInput.classList.add('error');
                 const errorMsg = document.createElement('div');
                 errorMsg.className = 'error-message';
-                errorMsg.innerHTML = '<i class="fas fa-exclamation-circle"></i> Beschrijving is verplicht';
-                descInput.parentElement.appendChild(errorMsg);
+                errorMsg.innerHTML = '<i class="fas fa-exclamation-circle"></i> Titel is verplicht';
+                titleInput.parentElement.appendChild(errorMsg);
             }
 
             if (!item.quantity || item.quantity <= 0) {
@@ -1026,7 +1043,10 @@ async function showInvoiceDetails(id) {
 
         let itemsHtml = (invoice.items || []).map(item => `
             <tr>
-                <td class="py-2 px-4 text-sm">${item.description || ''}</td>
+                <td class="py-2 px-4 text-sm">
+                    <div class="font-medium">${item.title || item.description || ''}</div>
+                    ${item.description && item.title ? `<div class="text-xs text-gray-500 mt-0.5">${item.description}</div>` : ''}
+                </td>
                 <td class="py-2 pr-4 text-sm text-right">${item.quantity}</td>
                 <td class="py-2 pr-4 text-sm text-right">${formatCurrency(item.unitPrice)}</td>
                 <td class="py-2 pr-4 text-sm text-right">${item.vatPercentage}%</td>
@@ -1194,13 +1214,26 @@ async function downloadInvoicePdf(invoiceId) {
                 { text: 'BTW', style: 'tableHeader', alignment: 'right' },
                 { text: 'Bedrag', style: 'tableHeader', alignment: 'right' }
             ],
-            ...(invoice.items || []).map(item => [
-                { text: item.description || '', fontSize: 10 },
-                { text: String(item.quantity), fontSize: 10, alignment: 'right' },
-                { text: formatCurrency(item.unitPrice), fontSize: 10, alignment: 'right' },
-                { text: `${item.vatPercentage}%`, fontSize: 10, alignment: 'right' },
-                { text: formatCurrency(item.amount || item.quantity * item.unitPrice), fontSize: 10, alignment: 'right', bold: true }
-            ])
+            ...(invoice.items || []).map(item => {
+                // Build description cell content
+                const titleText = item.title || item.description || '';
+                const descriptionText = item.description && item.title ? item.description : '';
+
+                const descriptionCell = descriptionText 
+                    ? [
+                        { text: titleText, fontSize: 10, bold: false },
+                        { text: descriptionText, fontSize: 8, color: '#6b7280', margin: [0, 2, 0, 0] }
+                    ]
+                    : { text: titleText, fontSize: 10 };
+
+                return [
+                    descriptionCell,
+                    { text: String(item.quantity), fontSize: 10, alignment: 'right' },
+                    { text: formatCurrency(item.unitPrice), fontSize: 10, alignment: 'right' },
+                    { text: `${item.vatPercentage}%`, fontSize: 10, alignment: 'right' },
+                    { text: formatCurrency(item.amount || item.quantity * item.unitPrice), fontSize: 10, alignment: 'right', bold: true }
+                ];
+            })
         ];
 
         // Build totals rows
@@ -1354,4 +1387,16 @@ async function downloadInvoicePdf(invoiceId) {
     } catch (error) {
         showToast('Fout bij genereren factuur: ' + error.message, 'error');
     }
+}
+
+function pickStandardInvoiceItem() {
+    showStandardLinePicker((selected) => {
+        const container = document.getElementById('invoiceItems');
+        if (!container) return;
+        selected.forEach(item => {
+            const newIndex = container.querySelectorAll('.invoice-item').length;
+            container.insertAdjacentHTML('beforeend', getInvoiceItemRow(newIndex, item));
+        });
+        calculateInvoiceTotals();
+    });
 }

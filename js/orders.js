@@ -26,10 +26,12 @@ async function loadOrders() {
         let html = `
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-2xl font-bold">Orders</h2>
+                ${canEdit() ? `
                 <button onclick="showCreateOrder()"
                         class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded">
                     <i class="fas fa-plus"></i> Nieuwe Order
                 </button>
+                ` : ''}
             </div>
         `;
 
@@ -102,15 +104,19 @@ async function loadOrders() {
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                             ${quoteButton}
-                            ${generateButton}
+                            ${canEdit() ? generateButton : ''}
+                            ${canEdit() ? `
                             <button onclick="showEditOrder('${order.id}')"
                                     class="text-blue-600 hover:text-blue-900 mr-3" title="Bewerken">
                                 <i class="fas fa-edit"></i>
                             </button>
+                            ` : ''}
+                            ${canDelete() ? `
                             <button onclick="deleteOrder('${order.id}')"
                                     class="text-red-600 hover:text-red-900" title="Verwijderen">
                                 <i class="fas fa-trash"></i>
                             </button>
+                            ` : ''}
                         </td>
                     </tr>
                 `;
@@ -284,15 +290,22 @@ function getOrderLineRow(index, line = {}, readonly = false) {
     const readonlyAttr = readonly ? 'readonly' : '';
     const readonlyClass = readonly ? 'bg-gray-100 cursor-not-allowed' : '';
     const vatPct = line.vatPercentage !== undefined ? line.vatPercentage : 21;
+    const title = line.title || line.description || '';
+    const description = line.description || '';
 
     return `
         <div class="order-line bg-white p-3 rounded border" data-index="${index}">
             <div class="flex flex-wrap gap-2 items-end">
                 <div class="flex-1 min-w-0">
-                    <label class="block text-xs font-medium mb-1">Beschrijving<span class="text-red-600 ml-1">*</span></label>
-                    <input type="text" class="line-description w-full px-2 py-1 border rounded text-sm ${readonlyClass}"
-                           value="${line.description || ''}" placeholder="Product of dienst..."
+                    <label class="block text-xs font-medium mb-1">Titel<span class="text-red-600 ml-1">*</span></label>
+                    <input type="text" class="line-title w-full px-2 py-1 border rounded text-sm font-medium ${readonlyClass}"
+                           value="${title}" placeholder="Korte titel van dienst/product..."
                            onchange="calculateOrderTotals()" ${readonlyAttr} required>
+                    <label class="block text-xs font-medium mb-1 mt-2">Beschrijving <span class="text-xs text-gray-500">(optioneel)</span></label>
+                    <textarea class="line-description w-full px-2 py-1 border rounded text-sm text-gray-600 ${readonlyClass}"
+                           placeholder="Extra details..."
+                           rows="2"
+                           onchange="calculateOrderTotals()" ${readonlyAttr}>${description}</textarea>
                 </div>
                 <div class="w-24 shrink-0">
                     <label class="block text-xs font-medium mb-1">Aantal<span class="text-red-600 ml-1">*</span></label>
@@ -384,6 +397,7 @@ function getOrderData() {
     let vatTotal = 0;
 
     document.querySelectorAll('.order-line').forEach(lineEl => {
+        const title        = lineEl.querySelector('.line-title').value.trim();
         const description  = lineEl.querySelector('.line-description').value.trim();
         const quantity     = parseFloat(lineEl.querySelector('.line-quantity').value) || 0;
         const unitPrice    = parseFloat(lineEl.querySelector('.line-price').value)    || 0;
@@ -391,7 +405,7 @@ function getOrderData() {
         const amount       = quantity * unitPrice;
         subtotal += amount;
         vatTotal += amount * (vatPercentage / 100);
-        lines.push({ description, quantity, unitPrice, vatPercentage, amount });
+        lines.push({ title, description, quantity, unitPrice, vatPercentage, amount });
     });
 
     return {
@@ -416,7 +430,7 @@ function validateOrderData(data) {
 }
 
 function getIncompleteOrderLines(lines) {
-    return (lines || []).filter(line => !line.description || line.quantity <= 0);
+    return (lines || []).filter(line => !line.title || line.quantity <= 0);
 }
 
 async function showCreateOrder() {
@@ -432,11 +446,11 @@ async function showCreateOrder() {
             const errors = validateOrderData(data);
             if (errors.length > 0) throw new Error(errors.join('\n'));
 
-            const validLines = data.lines.filter(l => l.description && l.quantity > 0);
+            const validLines = data.lines.filter(l => l.title && l.quantity > 0);
             const incompleteLines = getIncompleteOrderLines(data.lines);
 
             if (validLines.length === 0) {
-                throw new Error('Vul minimaal 1 orderregel volledig in (beschrijving en aantal zijn verplicht)');
+                throw new Error('Vul minimaal 1 orderregel volledig in (titel en aantal zijn verplicht)');
             }
 
             if (incompleteLines.length > 0) {
@@ -487,11 +501,11 @@ async function showEditOrder(id) {
             const errors = validateOrderData(data);
             if (errors.length > 0) throw new Error(errors.join('\n'));
 
-            const validLines = data.lines.filter(l => l.description && l.quantity > 0);
+            const validLines = data.lines.filter(l => l.title && l.quantity > 0);
             const incompleteLines = getIncompleteOrderLines(data.lines);
 
             if (validLines.length === 0) {
-                throw new Error('Vul minimaal 1 orderregel volledig in (beschrijving en aantal zijn verplicht)');
+                throw new Error('Vul minimaal 1 orderregel volledig in (titel en aantal zijn verplicht)');
             }
 
             if (incompleteLines.length > 0) {
@@ -564,7 +578,10 @@ async function showOrderDetails(id) {
 
         const linesHtml = (order.lines || []).map(line => `
             <tr>
-                <td class="py-2 px-4 text-sm">${line.description || ''}</td>
+                <td class="py-2 px-4 text-sm">
+                    <div class="font-medium">${line.title || line.description || ''}</div>
+                    ${line.description && line.title ? `<div class="text-xs text-gray-500 mt-0.5">${line.description}</div>` : ''}
+                </td>
                 <td class="py-2 pr-4 text-sm text-right">${line.quantity}</td>
                 <td class="py-2 pr-4 text-sm text-right">${formatCurrency(line.unitPrice)}</td>
                 <td class="py-2 pr-4 text-sm text-right">${line.vatPercentage}%</td>
@@ -815,13 +832,25 @@ async function downloadOrderQuotePdf(orderId, validUntil, extraNotes) {
                 { text: 'BTW', style: 'tableHeader', alignment: 'right' },
                 { text: 'Bedrag', style: 'tableHeader', alignment: 'right' }
             ],
-            ...(order.lines || []).map(line => [
-                { text: line.description || '', fontSize: 10 },
-                { text: String(line.quantity), fontSize: 10, alignment: 'right' },
-                { text: formatCurrency(line.unitPrice), fontSize: 10, alignment: 'right' },
-                { text: `${line.vatPercentage}%`, fontSize: 10, alignment: 'right' },
-                { text: formatCurrency(line.amount || line.quantity * line.unitPrice), fontSize: 10, alignment: 'right', bold: true }
-            ])
+            ...(order.lines || []).map(line => {
+                const titleText = line.title || line.description || '';
+                const descriptionText = line.description && line.title ? line.description : '';
+
+                const descriptionCell = descriptionText
+                    ? [
+                        { text: titleText, fontSize: 10, bold: false },
+                        { text: descriptionText, fontSize: 8, color: '#6b7280', margin: [0, 2, 0, 0] }
+                    ]
+                    : { text: titleText, fontSize: 10 };
+
+                return [
+                    descriptionCell,
+                    { text: String(line.quantity), fontSize: 10, alignment: 'right' },
+                    { text: formatCurrency(line.unitPrice), fontSize: 10, alignment: 'right' },
+                    { text: `${line.vatPercentage}%`, fontSize: 10, alignment: 'right' },
+                    { text: formatCurrency(line.amount || line.quantity * line.unitPrice), fontSize: 10, alignment: 'right', bold: true }
+                ];
+            })
         ];
 
         const totalsTableBody = [

@@ -237,6 +237,7 @@ async function showStandardLinePicker(onSelect) {
             groupHtml += `
                 <label class="flex items-start gap-3 p-2 rounded hover:bg-blue-50 cursor-pointer border border-transparent hover:border-blue-200 transition-colors">
                     <input type="checkbox" class="sl-pick mt-1 rounded" data-id="${line.id}"
+                           data-title="${(line.name || '').replace(/"/g, '&quot;')}"
                            data-description="${(line.description || '').replace(/"/g, '&quot;')}"
                            data-unit-price="${line.unitPrice ?? 0}"
                            data-vat="${line.vatPercentage ?? 21}">
@@ -303,6 +304,7 @@ async function showStandardLinePicker(onSelect) {
             return;
         }
         const selected = Array.from(checked).map(cb => ({
+            title: cb.dataset.title,
             description: cb.dataset.description,
             quantity: 1,
             unitPrice: parseFloat(cb.dataset.unitPrice) || 0,

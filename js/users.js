@@ -2,7 +2,7 @@
 
 function loadUsers() {
     const session = getSession();
-    if (!session || !session.isAdmin) {
+    if (!session || !hasRole(['Admin'])) {
         showError('Geen toegang. Alleen beheerders kunnen gebruikers beheren.');
         return;
     }
@@ -11,6 +11,17 @@ function loadUsers() {
     getAll('users')
         .then(users => renderUsers(users || []))
         .catch(err => showError(err.message));
+}
+
+function getRoleBadge(role) {
+    const roles = {
+        'Admin': { class: 'bg-red-100 text-red-800', icon: 'crown', label: 'Admin' },
+        'AdministratiefMedewerker': { class: 'bg-green-100 text-green-800', icon: 'user-edit', label: 'Administratief' },
+        'Medewerker': { class: 'bg-blue-100 text-blue-800', icon: 'user', label: 'Medewerker' },
+        'Gast': { class: 'bg-gray-100 text-gray-800', icon: 'eye', label: 'Gast' }
+    };
+    const r = roles[role] || roles['Medewerker'];
+    return `<span class="px-2 py-1 text-xs font-semibold rounded ${r.class}"><i class="fas fa-${r.icon}"></i> ${r.label}</span>`;
 }
 
 function renderUsers(users) {
@@ -47,9 +58,7 @@ function renderUsers(users) {
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 hidden lg:table-cell">${escapeHtml(u.kvkNumber || '-')}</td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 hidden lg:table-cell">${escapeHtml(u.vatNumber || '-')}</td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm">
-                                    ${u.isAdmin
-                                        ? '<span class="px-2 py-1 text-xs font-semibold rounded bg-green-100 text-green-800">Beheerder</span>'
-                                        : '<span class="px-2 py-1 text-xs font-semibold rounded bg-blue-100 text-blue-800">Gebruiker</span>'}
+                                    ${getRoleBadge(u.role || 'Medewerker')}
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                     <button onclick="showEditUserModal(${JSON.stringify(u).replace(/"/g, '&quot;')})"
@@ -73,6 +82,8 @@ function buildUserFormHtml(user) {
     const addr = user?.address || {};
     const inputClass = 'w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500';
     const labelClass = 'block text-sm font-medium text-gray-700 mb-1';
+    const currentRole = user?.role || 'Medewerker';
+    
     return `
         <div class="space-y-4">
             <div class="bg-blue-50 p-4 rounded-lg">
@@ -141,11 +152,29 @@ function buildUserFormHtml(user) {
                 </div>
             </div>
 
-            <div class="flex items-center gap-3 p-3 border border-gray-200 rounded-lg bg-white">
-                <input type="checkbox" id="uf-isAdmin" class="w-4 h-4 rounded text-blue-600" ${user?.isAdmin ? 'checked' : ''}>
-                <label class="text-sm font-medium text-gray-700" for="uf-isAdmin">
-                    <i class="fas fa-key text-yellow-500 mr-1"></i> Beheerderrechten
-                </label>
+            <div class="bg-yellow-50 p-4 rounded-lg">
+                <h3 class="font-semibold text-gray-800 mb-3 flex items-center">
+                    <i class="fas fa-user-shield mr-2 text-yellow-600"></i> Rol en rechten
+                </h3>
+                <label class="${labelClass}">Rol <span class="text-red-600">*</span></label>
+                <select id="uf-role" class="${inputClass}">
+                    <option value="Admin" ${currentRole === 'Admin' ? 'selected' : ''}>
+                        Admin - Volledige toegang inclusief verwijderen
+                    </option>
+                    <option value="AdministratiefMedewerker" ${currentRole === 'AdministratiefMedewerker' ? 'selected' : ''}>
+                        Administratief medewerker - Alles bewerken (geen verwijderen)
+                    </option>
+                    <option value="Medewerker" ${currentRole === 'Medewerker' ? 'selected' : ''}>
+                        Medewerker - Alleen bekijken
+                    </option>
+                    <option value="Gast" ${currentRole === 'Gast' ? 'selected' : ''}>
+                        Gast - Beperkt bekijken (geen gevoelige gegevens)
+                    </option>
+                </select>
+                <p class="text-xs text-gray-500 mt-2">
+                    <i class="fas fa-info-circle"></i> 
+                    Admin: Alles | Administratief: Bewerken | Medewerker: Bekijken | Gast: Beperkt bekijken
+                </p>
             </div>
         </div>
     `;
@@ -165,7 +194,7 @@ function collectUserFormData() {
             postalCode: document.getElementById('uf-postalCode').value.trim(),
             city: document.getElementById('uf-city').value.trim()
         },
-        isAdmin: document.getElementById('uf-isAdmin').checked
+        role: document.getElementById('uf-role').value
     };
 }
 
