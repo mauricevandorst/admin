@@ -16,125 +16,136 @@ function loadUsers() {
 function renderUsers(users) {
     const content = document.getElementById('content');
     content.innerHTML = `
-        <div class="space-y-6">
-            <div class="flex items-center justify-between">
-                <h2 class="text-2xl font-bold flex items-center gap-3">
-                    <div class="icon-premium icon-wood"><i class="fas fa-user-cog"></i></div>
-                    Gebruikersbeheer
-                </h2>
-                <button onclick="showCreateUserModal()" class="btn-bamboo flex items-center gap-2">
-                    <i class="fas fa-plus"></i> Nieuwe gebruiker
-                </button>
-            </div>
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold">Gebruikers&shy;beheer</h2>
+            <button onclick="showCreateUserModal()" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded">
+                <i class="fas fa-plus"></i> Nieuw
+            </button>
+        </div>
 
-            <div class="card-glass overflow-hidden">
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm">
-                        <thead class="bg-gray-50 border-b border-gray-200">
-                            <tr>
-                                <th class="px-4 py-3 text-left font-semibold text-gray-700">Naam</th>
-                                <th class="px-4 py-3 text-left font-semibold text-gray-700">Gebruikersnaam</th>
-                                <th class="px-4 py-3 text-left font-semibold text-gray-700">Bedrijf</th>
-                                <th class="px-4 py-3 text-left font-semibold text-gray-700">KVK</th>
-                                <th class="px-4 py-3 text-left font-semibold text-gray-700">BTW</th>
-                                <th class="px-4 py-3 text-left font-semibold text-gray-700">Rol</th>
-                                <th class="px-4 py-3 text-right font-semibold text-gray-700">Acties</th>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Naam</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Gebruikersnaam</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden md:table-cell">Bedrijf</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden lg:table-cell">KVK</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden lg:table-cell">BTW</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rol</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Acties</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    ${users.length === 0
+                        ? `<tr><td colspan="7" class="px-6 py-8 text-center text-gray-500">Geen gebruikers gevonden</td></tr>`
+                        : users.map(u => `
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">${escapeHtml(u.displayName || '-')}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${escapeHtml(u.username || '-')}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 hidden md:table-cell">${escapeHtml(u.companyName || '-')}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 hidden lg:table-cell">${escapeHtml(u.kvkNumber || '-')}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 hidden lg:table-cell">${escapeHtml(u.vatNumber || '-')}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                    ${u.isAdmin
+                                        ? '<span class="px-2 py-1 text-xs font-semibold rounded bg-green-100 text-green-800">Beheerder</span>'
+                                        : '<span class="px-2 py-1 text-xs font-semibold rounded bg-blue-100 text-blue-800">Gebruiker</span>'}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <button onclick="showEditUserModal(${JSON.stringify(u).replace(/"/g, '&quot;')})"
+                                            class="text-blue-600 hover:text-blue-900 mr-3" title="Bewerken">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button onclick="confirmDeleteUser('${u.id}', '${escapeHtml(u.displayName || u.username)}')"
+                                            class="text-red-600 hover:text-red-900" title="Verwijderen">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </td>
                             </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-100">
-                            ${users.length === 0
-                                ? `<tr><td colspan="7" class="px-4 py-8 text-center text-gray-500">Geen gebruikers gevonden</td></tr>`
-                                : users.map(u => `
-                                    <tr class="hover:bg-gray-50 transition-colors">
-                                        <td class="px-4 py-3 font-medium">${escapeHtml(u.displayName || '-')}</td>
-                                        <td class="px-4 py-3 text-gray-600">${escapeHtml(u.username || '-')}</td>
-                                        <td class="px-4 py-3 text-gray-600">${escapeHtml(u.companyName || '-')}</td>
-                                        <td class="px-4 py-3 text-gray-600">${escapeHtml(u.kvkNumber || '-')}</td>
-                                        <td class="px-4 py-3 text-gray-600">${escapeHtml(u.vatNumber || '-')}</td>
-                                        <td class="px-4 py-3">
-                                            ${u.isAdmin
-                                                ? '<span class="badge-premium badge-success text-xs">Beheerder</span>'
-                                                : '<span class="badge-premium badge-info text-xs">Gebruiker</span>'}
-                                        </td>
-                                        <td class="px-4 py-3 text-right">
-                                            <button onclick="showEditUserModal(${JSON.stringify(u).replace(/"/g, '&quot;')})"
-                                                    class="btn-sm-bamboo mr-1" title="Bewerken">
-                                                <i class="fas fa-edit"></i>
-                                            </button>
-                                            <button onclick="confirmDeleteUser('${u.id}', '${escapeHtml(u.displayName || u.username)}')"
-                                                    class="btn-sm-ghost text-red-600 hover:text-red-700" title="Verwijderen">
-                                                <i class="fas fa-trash"></i>
-                                            </button>
-                                        </td>
-                                    </tr>
-                                `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+                        `).join('')}
+                </tbody>
+            </table>
         </div>
     `;
 }
 
 function buildUserFormHtml(user) {
     const addr = user?.address || {};
+    const inputClass = 'w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500';
+    const labelClass = 'block text-sm font-medium text-gray-700 mb-1';
     return `
         <div class="space-y-4">
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-semibold mb-1 text-gray-700">Weergavenaam *</label>
-                    <input type="text" id="uf-displayName" class="input-premium w-full" value="${escapeHtml(user?.displayName || '')}" placeholder="Jan de Vries">
+            <div class="bg-blue-50 p-4 rounded-lg">
+                <h3 class="font-semibold text-gray-800 mb-3 flex items-center">
+                    <i class="fas fa-user mr-2 text-blue-600"></i> Accountgegevens
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="${labelClass}">Weergavenaam <span class="text-red-600">*</span></label>
+                        <input type="text" id="uf-displayName" class="${inputClass}" value="${escapeHtml(user?.displayName || '')}" placeholder="Jan de Vries">
+                    </div>
+                    <div>
+                        <label class="${labelClass}">Gebruikersnaam <span class="text-red-600">*</span></label>
+                        <input type="text" id="uf-username" class="${inputClass}" value="${escapeHtml(user?.username || '')}" placeholder="jdevries" ${user?.id ? 'disabled' : ''}>
+                    </div>
                 </div>
-                <div>
-                    <label class="block text-sm font-semibold mb-1 text-gray-700">Gebruikersnaam *</label>
-                    <input type="text" id="uf-username" class="input-premium w-full" value="${escapeHtml(user?.username || '')}" placeholder="jdevries" ${user?.id ? 'disabled' : ''}>
-                </div>
-            </div>
-            <div>
-                <label class="block text-sm font-semibold mb-1 text-gray-700">${user?.id ? 'Nieuw wachtwoord (leeg = ongewijzigd)' : 'Wachtwoord *'}</label>
-                <input type="password" id="uf-password" class="input-premium w-full" placeholder="••••••••" autocomplete="new-password">
-            </div>
-            <hr class="border-gray-200">
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-semibold mb-1 text-gray-700">Bedrijfsnaam</label>
-                    <input type="text" id="uf-companyName" class="input-premium w-full" value="${escapeHtml(user?.companyName || '')}" placeholder="Bedrijf B.V.">
-                </div>
-                <div>
-                    <label class="block text-sm font-semibold mb-1 text-gray-700">KVK-nummer</label>
-                    <input type="text" id="uf-kvkNumber" class="input-premium w-full" value="${escapeHtml(user?.kvkNumber || '')}" placeholder="12345678">
+                <div class="mt-4">
+                    <label class="${labelClass}">${user?.id ? 'Nieuw wachtwoord (leeg = ongewijzigd)' : 'Wachtwoord *'}</label>
+                    <input type="password" id="uf-password" class="${inputClass}" placeholder="••••••••" autocomplete="new-password">
                 </div>
             </div>
-            <div>
-                <label class="block text-sm font-semibold mb-1 text-gray-700">BTW-nummer</label>
-                <input type="text" id="uf-vatNumber" class="input-premium w-full" value="${escapeHtml(user?.vatNumber || '')}" placeholder="NL123456789B01">
-            </div>
-            <hr class="border-gray-200">
-            <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Adres</p>
-            <div class="grid grid-cols-3 gap-4">
-                <div class="col-span-2">
-                    <label class="block text-sm font-semibold mb-1 text-gray-700">Straat</label>
-                    <input type="text" id="uf-street" class="input-premium w-full" value="${escapeHtml(addr.street || '')}" placeholder="Voorbeeldstraat">
+
+            <div class="bg-green-50 p-4 rounded-lg">
+                <h3 class="font-semibold text-gray-800 mb-3 flex items-center">
+                    <i class="fas fa-building mr-2 text-green-600"></i> Bedrijfsinformatie
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="${labelClass}">Bedrijfsnaam</label>
+                        <input type="text" id="uf-companyName" class="${inputClass}" value="${escapeHtml(user?.companyName || '')}" placeholder="Bedrijf B.V.">
+                    </div>
+                    <div>
+                        <label class="${labelClass}">KVK-nummer</label>
+                        <input type="text" id="uf-kvkNumber" class="${inputClass}" value="${escapeHtml(user?.kvkNumber || '')}" placeholder="12345678">
+                    </div>
                 </div>
-                <div>
-                    <label class="block text-sm font-semibold mb-1 text-gray-700">Huisnummer</label>
-                    <input type="text" id="uf-houseNumber" class="input-premium w-full" value="${escapeHtml(addr.houseNumber || '')}" placeholder="1A">
-                </div>
-            </div>
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-semibold mb-1 text-gray-700">Postcode</label>
-                    <input type="text" id="uf-postalCode" class="input-premium w-full" value="${escapeHtml(addr.postalCode || '')}" placeholder="1234 AB">
-                </div>
-                <div>
-                    <label class="block text-sm font-semibold mb-1 text-gray-700">Stad</label>
-                    <input type="text" id="uf-city" class="input-premium w-full" value="${escapeHtml(addr.city || '')}" placeholder="Amsterdam">
+                <div class="mt-4">
+                    <label class="${labelClass}">BTW-nummer</label>
+                    <input type="text" id="uf-vatNumber" class="${inputClass}" value="${escapeHtml(user?.vatNumber || '')}" placeholder="NL123456789B01">
                 </div>
             </div>
-            <hr class="border-gray-200">
-            <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-                <input type="checkbox" id="uf-isAdmin" class="w-5 h-5 rounded" ${user?.isAdmin ? 'checked' : ''}>
-                <label class="text-sm font-semibold text-gray-700" for="uf-isAdmin">🔑 Beheerderrechten</label>
+
+            <div class="bg-gray-50 p-4 rounded-lg">
+                <h3 class="font-semibold text-gray-800 mb-3 flex items-center">
+                    <i class="fas fa-map-marker-alt mr-2 text-gray-600"></i> Adres
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="md:col-span-2">
+                        <label class="${labelClass}">Straat</label>
+                        <input type="text" id="uf-street" class="${inputClass}" value="${escapeHtml(addr.street || '')}" placeholder="Voorbeeldstraat">
+                    </div>
+                    <div>
+                        <label class="${labelClass}">Huisnummer</label>
+                        <input type="text" id="uf-houseNumber" class="${inputClass}" value="${escapeHtml(addr.houseNumber || '')}" placeholder="1A">
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    <div>
+                        <label class="${labelClass}">Postcode</label>
+                        <input type="text" id="uf-postalCode" class="${inputClass}" value="${escapeHtml(addr.postalCode || '')}" placeholder="1234 AB">
+                    </div>
+                    <div>
+                        <label class="${labelClass}">Stad</label>
+                        <input type="text" id="uf-city" class="${inputClass}" value="${escapeHtml(addr.city || '')}" placeholder="Amsterdam">
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3 p-3 border border-gray-200 rounded-lg bg-white">
+                <input type="checkbox" id="uf-isAdmin" class="w-4 h-4 rounded text-blue-600" ${user?.isAdmin ? 'checked' : ''}>
+                <label class="text-sm font-medium text-gray-700" for="uf-isAdmin">
+                    <i class="fas fa-key text-yellow-500 mr-1"></i> Beheerderrechten
+                </label>
             </div>
         </div>
     `;

@@ -93,6 +93,9 @@ function switchTab(tabName) {
         case 'users':
             loadUsers();
             break;
+        case 'standard-lines':
+            loadStandardLines();
+            break;
         default:
             showError('Pagina niet gevonden');
     }
@@ -230,7 +233,9 @@ function createModal(title, content, onSave, saveButtonText = 'Opslaan', size = 
             modal.dataset.hasUnsavedChanges = 'false'; // Reset flag before closing
             modal.remove();
         } catch (error) {
-            showToast(error.message, 'error');
+            if (!error.silent) {
+                showToast(error.message, 'error');
+            }
         }
     };
 
@@ -305,17 +310,21 @@ function generateGuid() {
     });
 }
 
+// Convert a Date object to a local YYYY-MM-DD string (avoids UTC offset issues with toISOString())
+function toLocalDateStr(date) {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
 // Get today's date in YYYY-MM-DD format
 function getTodayDate() {
-    const today = new Date();
-    return today.toISOString().split('T')[0];
+    return toLocalDateStr(new Date());
 }
 
 // Get date + days in YYYY-MM-DD format
-function getDatePlusDays(days) {
-    const date = new Date();
+function getDatePlusDays(days, baseDate) {
+    const date = baseDate ? new Date(baseDate) : new Date();
     date.setDate(date.getDate() + days);
-    return date.toISOString().split('T')[0];
+    return toLocalDateStr(date);
 }
 
 // Get current year

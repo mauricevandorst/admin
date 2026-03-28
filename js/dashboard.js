@@ -235,10 +235,16 @@ function renderDashboard(stats, invoices, payments, subscriptions, customers, or
                     <h2 class="text-xl font-bold text-gray-900 leading-tight">Dashboard</h2>
                 </div>
                 <div class="flex gap-2">
-                    <button onclick="switchTab('invoices')" class="btn-sm-bamboo">
+                    <button onclick="switchTab('invoices')" class="btn-sm-invoice">
                         <i class="fas fa-file-invoice"></i> Facturen
                     </button>
-                    <button onclick="switchTab('subscriptions')" class="btn-sm-ghost">
+                    <button onclick="switchTab('orders')" class="btn-sm-sunset">
+                        <i class="fas fa-shopping-cart"></i> Orders
+                    </button>
+                    <button onclick="switchTab('customers')" class="btn-sm-gold">
+                        <i class="fas fa-users"></i> Klanten
+                    </button>
+                    <button onclick="switchTab('subscriptions')" class="btn-sm-rose">
                         <i class="fas fa-sync"></i> Abonnementen
                     </button>
                 </div>

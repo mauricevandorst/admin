@@ -199,8 +199,8 @@ function getSubscriptionForm(subscription = null, allSubscriptions = [], custome
     const subscriptionId = subscription ? sub.subscriptionId : '';
 
     // Default dates
-    const startDate = subscription ? (sub.startDate ? new Date(sub.startDate).toISOString().split('T')[0] : '') : getTodayDate();
-    const endDate = subscription ? (sub.endDate ? new Date(sub.endDate).toISOString().split('T')[0] : '') : '';
+    const startDate = subscription ? (sub.startDate ? toLocalDateStr(new Date(sub.startDate)) : '') : getTodayDate();
+    const endDate = subscription ? (sub.endDate ? toLocalDateStr(new Date(sub.endDate)) : '') : '';
 
     const isReadonly = subscription ? 'readonly' : 'readonly';
     const bgColor = subscription ? 'bg-gray-100' : 'bg-blue-50';
@@ -281,9 +281,9 @@ function getSubscriptionForm(subscription = null, allSubscriptions = [], custome
                     <div>
                         <label class="block text-sm font-medium mb-2">Maandprijs (€)<span class="text-red-600 ml-1">*</span></label>
                         <input type="number" step="0.01" id="monthlyPrice" value="${sub.monthlyPrice || ''}" required
-                            ${subscription ? 'onchange="updateBillingAmount()"' : 'readonly'}
+                            onchange="onMonthlyPriceChange()"
                             placeholder="Auto"
-                            class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500 ${subscription ? '' : 'bg-white'}">
+                            class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500">
                     </div>
                     <div>
                         <label class="block text-sm font-medium mb-2">Factureringsfrequentie<span class="text-red-600 ml-1">*</span></label>
@@ -389,6 +389,25 @@ function updateSubscriptionPlanFields() {
 }
 
 // Update billing amount display based on frequency
+function onMonthlyPriceChange() {
+    const monthlyPriceField = document.getElementById('monthlyPrice');
+    if (!monthlyPriceField) return;
+
+    if (!monthlyPriceField.value) {
+        const planIdField = document.getElementById('planId');
+        const planIdHiddenField = document.getElementById('planIdHidden');
+
+        if (planIdField && planIdField.selectedIndex >= 0 && planIdField.value) {
+            monthlyPriceField.value = planIdField.options[planIdField.selectedIndex].getAttribute('data-price') || '';
+        } else if (planIdHiddenField && globalPlansData) {
+            const plan = globalPlansData.find(p => p.planId === planIdHiddenField.value);
+            if (plan) monthlyPriceField.value = plan.monthlyPrice || '';
+        }
+    }
+
+    updateBillingAmount();
+}
+
 function updateBillingAmount() {
     const monthlyPriceField = document.getElementById('monthlyPrice');
     const billingFrequencyField = document.getElementById('billingFrequency');
@@ -858,8 +877,8 @@ function buildTermsOverviewHtml(terms, subscriptionId = null, prefillMode = fals
             ? formatCurrency(term.invoice.totalAmount)
             : `<span class="text-gray-400">${formatCurrency(term.expectedAmount)}</span>`;
 
-        const periodStartStr = term.periodStart instanceof Date ? term.periodStart.toISOString().split('T')[0] : '';
-        const periodEndStr   = term.periodEnd   instanceof Date ? term.periodEnd.toISOString().split('T')[0]   : '';
+        const periodStartStr = term.periodStart instanceof Date ? toLocalDateStr(term.periodStart) : '';
+        const periodEndStr   = term.periodEnd   instanceof Date ? toLocalDateStr(term.periodEnd)   : '';
         let actionCell = '<td class="px-3 py-2 text-xs"></td>';
         if (subscriptionId && (term.status === 'open' || term.status === 'current')) {
             const onclickHandler = prefillMode
@@ -1056,7 +1075,7 @@ async function showAddSubscriptionPayment(subscriptionId) {
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Betaaldatum *</label>
-                        <input type="date" name="paymentDate" value="${today.toISOString().split('T')[0]}" 
+                        <input type="date" name="paymentDate" value="${toLocalDateStr(today)}" 
                                class="w-full border border-gray-300 rounded px-3 py-2" required>
                     </div>
                     <div>
@@ -1088,12 +1107,12 @@ async function showAddSubscriptionPayment(subscriptionId) {
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Periode start</label>
-                        <input type="date" name="billingPeriodStart" value="${periodStart.toISOString().split('T')[0]}" 
+                        <input type="date" name="billingPeriodStart" value="${toLocalDateStr(periodStart)}" 
                                class="w-full border border-gray-300 rounded px-3 py-2">
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Periode eind</label>
-                        <input type="date" name="billingPeriodEnd" value="${periodEnd.toISOString().split('T')[0]}" 
+                        <input type="date" name="billingPeriodEnd" value="${toLocalDateStr(periodEnd)}" 
                                class="w-full border border-gray-300 rounded px-3 py-2">
                     </div>
                 </div>
@@ -1167,11 +1186,15 @@ async function showAddSubscriptionPayment(subscriptionId) {
                             case 'yearly':     d.setFullYear(d.getFullYear() + 1); break;
                             default:           d.setMonth(d.getMonth() + 1); break;
                         }
-                        return d.toISOString().split('T')[0];
+                        return toLocalDateStr(d);
                     }
 
                     const today = getTodayDate();
-                    const initialPeriodEnd = calcPeriodEnd(today, billingFrequency);
+
+                    // Gebruik de lopende periode als standaard; val terug op de eerste openstaande termijn, dan vandaag
+                    const defaultTerm = genTerms.find(t => t.status === 'current') || genTerms.find(t => t.status === 'open');
+                    const defaultPeriodStart = defaultTerm ? toLocalDateStr(defaultTerm.periodStart) : today;
+                    const defaultPeriodEnd   = defaultTerm ? toLocalDateStr(defaultTerm.periodEnd)   : calcPeriodEnd(today, billingFrequency);
 
                     const billingFrequencyText = {
                         monthly:    'Maandelijks',
@@ -1212,12 +1235,12 @@ async function showAddSubscriptionPayment(subscriptionId) {
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-sm font-medium mb-2">Periode van<span class="text-red-600 ml-1">*</span></label>
-                                       <input type="date" id="genPeriodStart" value="${prefillStart || today}"
-                                               class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-purple-500">
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-medium mb-2">Periode tot<span class="text-red-600 ml-1">*</span></label>
-                                        <input type="date" id="genPeriodEnd" value="${prefillEnd || initialPeriodEnd}"
+                                       <input type="date" id="genPeriodStart" value="${prefillStart || defaultPeriodStart}"
+                                                   class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-purple-500">
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium mb-2">Periode tot<span class="text-red-600 ml-1">*</span></label>
+                                            <input type="date" id="genPeriodEnd" value="${prefillEnd || defaultPeriodEnd}"
                                            class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-purple-500">
                                 </div>
                             </div>
@@ -1226,7 +1249,7 @@ async function showAddSubscriptionPayment(subscriptionId) {
                                     <label class="block text-sm font-medium mb-2">Vervaldatum</label>
                                     <input type="date" id="genDueDate" value="${getDatePlusDays(14)}"
                                            class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-purple-500">
-                                    <p class="text-xs text-gray-500 mt-1">Standaard: 14 dagen na vandaag</p>
+                                    <p class="text-xs text-gray-500 mt-1">Standaard: 14 dagen na startdatum</p>
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium mb-2">BTW %</label>

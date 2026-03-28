@@ -51,7 +51,7 @@ function buildInvoiceTableRows(invoices, customers) {
         html += `
             <tr class="hover:bg-gray-50">
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div class="text-blue-600 hover:text-blue-900 cursor-pointer hover:underline" onclick="showEditInvoice('${invoice.id}')">${invoice.invoiceNumber || 'N/A'}</div>
+                    <div class="text-blue-600 hover:text-blue-900 cursor-pointer hover:underline" onclick="showInvoiceDetails('${invoice.id}')">${invoice.invoiceNumber || 'N/A'}</div>
                     ${invoice.invoiceSource === 'order' ? `
                             <div class="text-xs mt-1">
                                 <span class="px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">
@@ -287,10 +287,16 @@ function getInvoiceForm(invoice = null, allInvoices = [], customers = []) {
             <div class="bg-green-50 p-4 rounded-lg border border-green-200">
                 <div class="flex justify-between items-center mb-3">
                     <h3 class="font-bold text-lg">Factuurregels</h3>
-                    <button type="button" onclick="addInvoiceItem()" 
-                            class="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-sm">
-                        <i class="fas fa-plus"></i> Regel toevoegen
-                    </button>
+                    <div class="flex gap-2">
+                        <button type="button" onclick="pickStandardInvoiceItem()"
+                                class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm">
+                            <i class="fas fa-list-check"></i> Standaard&shy;regels
+                        </button>
+                        <button type="button" onclick="addInvoiceItem()" 
+                                class="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-sm">
+                            <i class="fas fa-plus"></i> Handmatig
+                        </button>
+                    </div>
                 </div>
 
                 <div id="invoiceItems" class="space-y-3">
@@ -318,31 +324,13 @@ function getInvoiceForm(invoice = null, allInvoices = [], customers = []) {
             </div>
 
             <!-- Notes and Status -->
-            <div class="grid ${invoice ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'} gap-4">
+            <div class="grid grid-cols-1 gap-4">
                 <div>
                     <label for="notes" class="block text-sm font-medium mb-2">Opmerkingen</label>
                     <textarea id="notes" rows="3" 
                               placeholder="Extra informatie voor op de factuur..."
                               class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500">${inv.notes || ''}</textarea>
                 </div>
-                ${invoice ? `
-                <div>
-                    <label for="status" class="block text-sm font-medium mb-2">
-                        Status
-                        <span class="text-xs text-gray-500 ml-2"><i class="fas fa-lock"></i> Alleen-lezen</span>
-                    </label>
-                    <select id="status" disabled class="w-full px-3 py-2 border rounded bg-gray-100 cursor-not-allowed">
-                        <option value="pending" ${inv.status === 'pending' || !inv.status ? 'selected' : ''}>Openstaand</option>
-                        <option value="unpaid" ${inv.status === 'unpaid' ? 'selected' : ''}>Openstaand</option>
-                        <option value="partially_paid" ${inv.status === 'partially_paid' ? 'selected' : ''}>Gedeeltelijk Betaald</option>
-                        <option value="paid" ${inv.status === 'paid' ? 'selected' : ''}>Betaald</option>
-                        <option value="overdue" ${inv.status === 'overdue' ? 'selected' : ''}>Achterstallig</option>
-                    </select>
-                    <p class="text-xs text-gray-500 mt-1">
-                        <i class="fas fa-info-circle"></i> Status wordt automatisch bijgewerkt bij betalingen
-                    </p>
-                </div>
-                ` : ''}
             </div>
         </div>
     `;
@@ -979,7 +967,7 @@ function setupInvoiceDateListener() {
         // Calculate due date as 14 days after invoice date
         const date = new Date(invoiceDate);
         date.setDate(date.getDate() + 14);
-        const newDueDate = date.toISOString().split('T')[0];
+        const newDueDate = toLocalDateStr(date);
 
         dueDateInput.value = newDueDate;
     });
@@ -1038,11 +1026,11 @@ async function showInvoiceDetails(id) {
 
         let itemsHtml = (invoice.items || []).map(item => `
             <tr>
-                <td class="py-2 pr-4 text-sm">${item.description || ''}</td>
+                <td class="py-2 px-4 text-sm">${item.description || ''}</td>
                 <td class="py-2 pr-4 text-sm text-right">${item.quantity}</td>
                 <td class="py-2 pr-4 text-sm text-right">${formatCurrency(item.unitPrice)}</td>
                 <td class="py-2 pr-4 text-sm text-right">${item.vatPercentage}%</td>
-                <td class="py-2 text-sm text-right font-semibold">${formatCurrency(item.amount || item.quantity * item.unitPrice)}</td>
+                <td class="py-2 pr-4 text-sm text-right font-semibold">${formatCurrency(item.amount || item.quantity * item.unitPrice)}</td>
             </tr>
         `).join('');
 
@@ -1252,7 +1240,15 @@ async function downloadInvoicePdf(invoiceId) {
 
         const docDefinition = {
             pageSize: 'A4',
-            pageMargins: [40, 40, 40, 40],
+            pageMargins: [40, 40, 40, 60],
+            footer: function() {
+                const parts = [companyName];
+                if (companyAddress?.street) parts.push(`${companyAddress.street} ${companyAddress.houseNumber || ''}`.trim());
+                if (companyAddress?.postalCode || companyAddress?.city) parts.push(`${companyAddress.postalCode || ''} ${companyAddress.city || ''}`.trim());
+                if (companyKvk) parts.push(`KVK: ${companyKvk}`);
+                if (companyVat) parts.push(`BTW: ${companyVat}`);
+                return { text: parts.join('  ·  '), alignment: 'center', fontSize: 8, color: '#9ca3af', margin: [40, 10, 40, 0] };
+            },
             content: [
                 // Header: company + invoice title
                 {
@@ -1343,14 +1339,6 @@ async function downloadInvoicePdf(invoiceId) {
                     { text: 'Opmerkingen', style: 'sectionHeader', margin: [0, 16, 0, 4] },
                     { text: invoice.notes, fontSize: 10, color: '#374151', background: '#f9fafb', margin: [8, 4, 8, 4] }
                 ] : []),
-                // Footer
-                {
-                    text: `Gegenereerd met RiceDesk op ${new Date().toLocaleDateString('nl-NL')}`,
-                    fontSize: 9,
-                    color: '#9ca3af',
-                    alignment: 'center',
-                    margin: [0, 32, 0, 0]
-                }
             ],
             styles: {
                 companyName: { fontSize: 22, bold: true, color: '#111827' },

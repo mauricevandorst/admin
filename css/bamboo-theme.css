@@ -897,6 +897,82 @@ footer:not(.hidden) {
     color: white;
 }
 
+.btn-sm-invoice {
+    background: rgba(30, 136, 229, 0.1);
+    color: var(--invoice-blue);
+    border: none;
+    border-radius: 0.5rem;
+    padding: 0.375rem 0.75rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    transition: background var(--transition-base);
+}
+
+.btn-sm-invoice:hover {
+    background: rgba(30, 136, 229, 0.2);
+}
+
+.btn-sm-sunset {
+    background: rgba(255, 152, 0, 0.1);
+    color: var(--sunset);
+    border: none;
+    border-radius: 0.5rem;
+    padding: 0.375rem 0.75rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    transition: background var(--transition-base);
+}
+
+.btn-sm-sunset:hover {
+    background: rgba(255, 152, 0, 0.2);
+}
+
+.btn-sm-gold {
+    background: rgba(255, 193, 7, 0.12);
+    color: #c68f00;
+    border: none;
+    border-radius: 0.5rem;
+    padding: 0.375rem 0.75rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    transition: background var(--transition-base);
+}
+
+.btn-sm-gold:hover {
+    background: rgba(255, 193, 7, 0.22);
+}
+
+.btn-sm-rose {
+    background: rgba(236, 64, 122, 0.1);
+    color: var(--rose);
+    border: none;
+    border-radius: 0.5rem;
+    padding: 0.375rem 0.75rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    transition: background var(--transition-base);
+}
+
+.btn-sm-rose:hover {
+    background: rgba(236, 64, 122, 0.2);
+}
+
 /* KPI Strip */
 .kpi-strip {
     display: grid;
