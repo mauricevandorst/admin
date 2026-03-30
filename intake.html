@@ -285,13 +285,13 @@
             <!-- Empty State -->
             <div id="emptyState" class="intake-card p-12 text-center">
                 <div class="text-6xl mb-4">👥</div>
-                <h3 class="text-xl font-semibold text-gray-700 mb-2">Nog geen klant aangemaakt</h3>
-                <p class="text-gray-500 mb-6">Maak een nieuwe klant aan of open een bestaande intake</p>
+                <h3 class="text-xl font-semibold text-gray-700 mb-2">Nog geen intake gestart</h3>
+                <p class="text-gray-500 mb-6">Start een nieuwe intake of open de intake van een bestaande klant</p>
                 <div class="flex flex-col gap-4 max-w-md mx-auto">
                     <button onclick="openCustomerModal()" 
                             class="inline-flex items-center justify-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors">
                         <i class="fas fa-plus-circle mr-2"></i>
-                        Nieuwe Klant Aanmaken
+                        Nieuwe Intake Starten
                     </button>
 
                     <div class="relative">
@@ -305,19 +305,19 @@
 
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2 text-left">
-                            <i class="fas fa-folder-open text-orange-500 mr-1"></i>
+                            <i class="fas fa-folder-open text-blue-500 mr-1"></i>
                             Bestaande Intake Openen
                         </label>
                         <div class="flex gap-2">
                             <input type="text" id="openIntakeCustomerNumber" 
                                    placeholder="Bijv. CUS-0001"
-                                   class="flex-1 px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+                                   class="flex-1 px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                             <button onclick="openExistingIntake()" 
-                                    class="px-6 py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-semibold transition-colors">
+                                    class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors">
                                 <i class="fas fa-folder-open mr-2"></i>Openen
                             </button>
                         </div>
-                        <p class="text-xs text-gray-500 mt-2 text-left">💡 Voer een klantnummer in om de intake te openen</p>
+                        <p class="text-xs text-gray-500 mt-2 text-left">✏️ Voer een klantnummer in om een bestaande intake te openen</p>
                     </div>
                 </div>
             </div>

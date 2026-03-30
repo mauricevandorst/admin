@@ -107,7 +107,7 @@ function buildInvoiceTableRows(invoices, customers) {
                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     ${paymentButton}
                     <button onclick="downloadInvoicePdf('${invoice.id}')"
-                            class="text-gray-600 hover:text-gray-900 mr-3"
+                            class="text-blue-600 hover:text-blue-900 mr-3"
                             title="Factuur downloaden als PDF">
                         <i class="fas fa-file-download"></i>
                     </button>
