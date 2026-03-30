@@ -48,6 +48,13 @@
                                     placeholder="Wachtwoord">
                             </div>
                         </div>
+                        <div class="flex items-center">
+                            <input type="checkbox" id="intakeModeCheckbox" 
+                                   class="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500">
+                            <label for="intakeModeCheckbox" class="ml-2 text-sm text-gray-700">
+                                <i class="fas fa-user-plus text-green-600"></i> Intake modus (klantgesprek)
+                            </label>
+                        </div>
                         <p id="loginError" class="hidden text-red-600 text-sm font-medium"></p>
                         <button type="submit" id="loginBtn"
                             class="w-full py-2.5 rounded-xl text-white font-semibold flex items-center justify-center gap-2 transition-opacity hover:opacity-90"
@@ -89,11 +96,20 @@
                                     class="absolute hidden group-hover:block bg-white shadow-lg rounded-md top-full pt-2 z-50 min-w-[200px]">
                                     <button onclick="switchTab('invoices')" id="nav-invoices"
                                         class="nav-button w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2">
-                                        <i class="fas fa-file-invoice"></i> Facturen
+                                        <i class="fas fa-file-invoice"></i> Verkoopfacturen
+                                    </button>
+                                    <button onclick="switchTab('purchase-invoices')" id="nav-purchase-invoices"
+                                        class="nav-button w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2">
+                                        <i class="fas fa-file-invoice-dollar"></i> Inkoopfacturen
                                     </button>
                                     <button onclick="switchTab('payments')" id="nav-payments"
                                         class="nav-button w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2">
                                         <i class="fas fa-credit-card"></i> Betalingen
+                                    </button>
+                                    <div class="border-t border-gray-100 my-1"></div>
+                                    <button onclick="switchTab('suppliers')" id="nav-suppliers"
+                                        class="nav-button w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2">
+                                        <i class="fas fa-truck"></i> Leveranciers
                                     </button>
                                 </div>
                             </div>
@@ -133,7 +149,7 @@
                                         class="nav-button w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2">
                                         <i class="fas fa-sync"></i> Abonnementen
                                     </button>
-                                    <button onclick="switchTab('maintenance-plans')" id="nav-maintenance-plans"
+                                    <button onclick="switchTab('subscription-plans')" id="nav-subscription-plans"
                                         class="nav-button w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2">
                                         <i class="fas fa-layer-group"></i> Plannen
                                     </button>
@@ -172,6 +188,11 @@
                                     <i class="fas fa-cog"></i> Instellingen
                                 </button>
                                 <div class="border-t border-gray-100 my-1"></div>
+                                <button onclick="switchToIntakeMode()"
+                                    class="nav-button w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2 text-blue-600">
+                                    <i class="fas fa-user-plus"></i> Intake Modus
+                                </button>
+                                <div class="border-t border-gray-100 my-1"></div>
                                 <button onclick="handleLogout()"
                                     class="nav-button w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2 text-red-600">
                                     <i class="fas fa-sign-out-alt"></i> Uitloggen
@@ -179,9 +200,9 @@
                             </div>
                         </div>
                         <!-- Mobile hamburger button -->
-                        <button onclick="toggleMobileMenu()" class="xl:hidden btn-sm-bamboo flex items-center gap-2"
+                        <button onclick="toggleMobileMenu()" class="xl:hidden btn-sm-bamboo flex justify-center items-center gap-2"
                             id="hamburgerBtn" title="Menu">
-                            <i class="fas fa-bars" id="hamburgerIcon"></i>
+                            <i class="fas fa-bars text-xl" id="hamburgerIcon"></i>
                         </button>
                     </div>
                 </div>
@@ -205,7 +226,15 @@
                     </button>
                     <button onclick="switchTab('invoices'); toggleMobileMenu();"
                         class="nav-button block w-full text-left px-4 py-2 flex items-center gap-2">
-                        <i class="fas fa-file-invoice"></i> Facturen
+                        <i class="fas fa-file-invoice"></i> Verkoopfacturen
+                    </button>
+                    <button onclick="switchTab('purchase-invoices'); toggleMobileMenu();"
+                        class="nav-button block w-full text-left px-4 py-2 flex items-center gap-2">
+                        <i class="fas fa-file-invoice-dollar"></i> Inkoopfacturen
+                    </button>
+                    <button onclick="switchTab('suppliers'); toggleMobileMenu();"
+                        class="nav-button block w-full text-left px-4 py-2 flex items-center gap-2">
+                        <i class="fas fa-truck"></i> Leveranciers
                     </button>
                     <button onclick="switchTab('payments'); toggleMobileMenu();"
                         class="nav-button block w-full text-left px-4 py-2 flex items-center gap-2">
@@ -215,7 +244,7 @@
                         class="nav-button block w-full text-left px-4 py-2 flex items-center gap-2">
                         <i class="fas fa-sync"></i> Abonnementen
                     </button>
-                    <button onclick="switchTab('maintenance-plans'); toggleMobileMenu();"
+                    <button onclick="switchTab('subscription-plans'); toggleMobileMenu();"
                         class="nav-button block w-full text-left px-4 py-2 flex items-center gap-2">
                         <i class="fas fa-layer-group"></i> Plannen
                     </button>
@@ -358,11 +387,13 @@
     <script src="js/ui.js"></script>
     <script src="js/dashboard.js"></script>
     <script src="js/customers.js"></script>
+    <script src="js/suppliers.js"></script>
     <script src="js/standard-lines.js"></script>
     <script src="js/orders.js"></script>
     <script src="js/invoices.js"></script>
+    <script src="js/purchase-invoices.js"></script>
     <script src="js/payments.js"></script>
-    <script src="js/maintenance-plans.js"></script>
+    <script src="js/subscription-plans.js"></script>
     <script src="js/subscriptions.js"></script>
     <script src="js/reports.js"></script>
     <script src="js/users.js"></script>

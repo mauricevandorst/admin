@@ -1,13 +1,17 @@
 // Main application initialization
 document.addEventListener('DOMContentLoaded', () => {
+    // Check if user is in intake mode and redirect if needed
+    const session = getSession();
+    if (session && session.intakeMode) {
+        window.location.href = 'intake.html';
+        return;
+    }
+
     // Apply user settings
     const settings = getUserSettings();
     applyUserSettings(settings);
 
-    // switchTab wordt al aangeroepen door auth.js als de gebruiker ingelogd is
-    if (isLoggedIn()) {
-        switchTab('dashboard');
-    }
+    // switchTab wordt aangeroepen door auth.js als de gebruiker ingelogd is
 
     // Set current year in footer
     const footerYear = document.getElementById('footerYear');

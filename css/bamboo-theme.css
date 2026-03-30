@@ -10,7 +10,7 @@
     --rose: #EC407A;
     --wood: #8D6E63;
     --financial-blue: #26C6DA;
-    --invoice-blue: #1E88E5;
+    --invoice-purple: #501ee5;
 
     --gradient-bamboo: linear-gradient(135deg, #7CB342 0%, #558B2F 100%);
     --gradient-gold: linear-gradient(135deg, #FFD54F 0%, #FFC107 100%);
@@ -130,8 +130,12 @@ nav .fa-users {
     color: var(--gold);
 }
 
+nav .fa-truck {
+    color: var(--wood);
+}
+
 nav .fa-euro-sign {
-    color: var(--financial-blue);
+    color: var(--invoice-purple);
 }
 
 nav .fa-shopping-cart {
@@ -139,11 +143,15 @@ nav .fa-shopping-cart {
 }
 
 nav .fa-file-invoice {
-    color: var(--invoice-blue);
+    color: var(--invoice-purple);
+}
+
+nav .fa-file-invoice-dollar {
+    color: #dc2626;
 }
 
 nav .fa-credit-card {
-    color: #7E57C2;
+    color: #7057c2;
 }
 
 nav .fa-sync {
@@ -630,6 +638,18 @@ textarea.error {
 }
 
 /* Modals */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    padding: 1rem;
+}
+
 .modal-premium {
     background: white;
     border-radius: var(--radius-2xl);
@@ -859,8 +879,7 @@ footer:not(.hidden) {
 
 /* Compact header buttons */
 .btn-sm-bamboo {
-    background: var(--gradient-bamboo);
-    color: white;
+    color: var(--bamboo-primary);
     border: none;
     border-radius: 0.5rem;
     padding: 0.375rem 0.75rem;
@@ -898,8 +917,8 @@ footer:not(.hidden) {
 }
 
 .btn-sm-invoice {
-    background: rgba(30, 136, 229, 0.1);
-    color: var(--invoice-blue);
+    background: rgba(143, 30, 229, 0.1);
+    color: var(--invoice-purple);
     border: none;
     border-radius: 0.5rem;
     padding: 0.375rem 0.75rem;
@@ -973,6 +992,101 @@ footer:not(.hidden) {
     background: rgba(236, 64, 122, 0.2);
 }
 
+.btn-sm-red {
+    background: rgba(220, 38, 38, 0.1);
+    color: #dc2626;
+    border: none;
+    border-radius: 0.5rem;
+    padding: 0.375rem 0.75rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    transition: background var(--transition-base);
+}
+
+.btn-sm-red:hover {
+    background: rgba(220, 38, 38, 0.2);
+}
+
+.btn-sm-wood {
+    background: rgba(141, 110, 99, 0.1);
+    color: var(--wood);
+    border: none;
+    border-radius: 0.5rem;
+    padding: 0.375rem 0.75rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    transition: background var(--transition-base);
+}
+
+.btn-sm-wood:hover {
+    background: rgba(141, 110, 99, 0.2);
+}
+
+.btn-sm-success {
+    background: rgba(124, 179, 66, 0.12);
+    color: var(--bamboo-dark);
+    border: none;
+    border-radius: 0.5rem;
+    padding: 0.375rem 0.75rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    transition: background var(--transition-base);
+}
+
+.btn-sm-success:hover {
+    background: rgba(124, 179, 66, 0.22);
+}
+
+.btn-sm-wood {
+    background: rgba(141, 110, 99, 0.1);
+    color: var(--wood);
+    border: none;
+    border-radius: 0.5rem;
+    padding: 0.375rem 0.75rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    transition: background var(--transition-base);
+}
+
+.btn-sm-wood:hover {
+    background: rgba(141, 110, 99, 0.2);
+}
+
+.btn-sm-red {
+    background: rgba(239, 68, 68, 0.1);
+    color: #dc2626;
+    border: none;
+    border-radius: 0.5rem;
+    padding: 0.375rem 0.75rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    transition: background var(--transition-base);
+}
+
+.btn-sm-red:hover {
+    background: rgba(239, 68, 68, 0.2);
+}
+
 /* KPI Strip */
 .kpi-strip {
     display: grid;
@@ -1011,7 +1125,7 @@ footer:not(.hidden) {
     margin-bottom: 0.25rem;
     display: flex;
     align-items: center;
-    gap: 0.3rem;
+    gap: 0.5rem;
 }
 
 .kpi-card-compact .fa-users {
@@ -1019,7 +1133,7 @@ footer:not(.hidden) {
 }
 
 .kpi-card-compact .fa-file-invoice {
-    color: var(--invoice-blue);
+    color: var(--invoice-purple);
 }
 
 .kpi-card-compact .fa-shopping-cart {
@@ -1042,6 +1156,15 @@ footer:not(.hidden) {
 .kpi-card-compact .kpi-sub {
     font-size: 0.72rem;
     color: #9ca3af;
+}
+
+/* KPI icon */
+.kpi-icon {
+    border-radius: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
 }
 
 /* Compact Card */
@@ -1338,4 +1461,210 @@ footer:not(.hidden) {
 
 .dashboard-pipeline-item.neutral {
     background: rgba(88, 101, 89, 0.09);
+}
+
+/* User dropdown menu fix - prevents submenu from closing */
+.group:hover > div.absolute {
+    display: block !important;
+}
+
+.group > div.absolute::before {
+    content: '';
+    position: absolute;
+    top: -0.5rem;
+    left: 0;
+    right: 0;
+    height: 0.5rem;
+}
+
+/* Enhanced Dashboard Styles */
+.dashboard-enhancement {
+    background: linear-gradient(135deg, #f8fdf9 0%, #f1f8f3 100%);
+    border-radius: var(--radius-xl);
+    padding: 1.5rem;
+    box-shadow: var(--shadow-md);
+    transition: all var(--transition-base);
+}
+
+.dashboard-enhancement:hover {
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-2px);
+}
+
+.revenue-indicator {
+    position: relative;
+    padding: 1rem;
+    background: linear-gradient(135deg, #e8f5e8 0%, #f0f9f0 100%);
+    border-radius: 0.75rem;
+    border-left: 4px solid var(--bamboo-primary);
+}
+
+.revenue-indicator::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--bamboo-primary), var(--bamboo-light));
+    border-radius: 2px 2px 0 0;
+}
+
+.cashflow-positive {
+    background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 50%, #86efac 100%);
+    color: #15803d;
+}
+
+.cashflow-negative {
+    background: linear-gradient(135deg, #fef2f2 0%, #fecaca 50%, #fca5a5 100%);
+    color: #dc2626;
+}
+
+.cashflow-neutral {
+    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 50%, #cbd5e1 100%);
+    color: #64748b;
+}
+
+.metric-highlight {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.75rem;
+    background: rgba(124, 179, 66, 0.1);
+    color: var(--bamboo-dark);
+    border-radius: 2rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border: 1px solid rgba(124, 179, 66, 0.2);
+}
+
+.risk-indicator {
+    padding: 0.5rem;
+    border-radius: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-align: center;
+}
+
+.risk-low {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.risk-medium {
+    background: #fef3c7;
+    color: #d97706;
+}
+
+.risk-high {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+.growth-indicator {
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+    border-radius: 0.5rem;
+    padding: 0.75rem;
+}
+
+.growth-indicator::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 3px;
+    background: linear-gradient(180deg, #3b82f6, #1d4ed8);
+}
+
+.dashboard-progress-bar {
+    width: 100%;
+    height: 6px;
+    background-color: #e5e7eb;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.dashboard-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--bamboo-primary) 0%, var(--bamboo-light) 100%);
+    border-radius: 3px;
+    transition: width 1s ease-in-out;
+}
+
+/* Animated counters */
+.counter-animate {
+    animation: countUp 1.5s ease-out;
+}
+
+@keyframes countUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Enhanced KPI Cards */
+.kpi-card-enhanced {
+    background: white;
+    border-radius: var(--radius-lg);
+    padding: 1.25rem;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid #f3f4f6;
+    transition: all var(--transition-base);
+    position: relative;
+    overflow: hidden;
+}
+
+.kpi-card-enhanced::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--bamboo-primary), var(--bamboo-light));
+}
+
+.kpi-card-enhanced:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+    border-color: var(--bamboo-light);
+}
+
+/* Financial metrics specific styling */
+.financial-metric {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.financial-metric:last-child {
+    border-bottom: none;
+}
+
+.financial-metric-label {
+    font-size: 0.875rem;
+    color: #6b7280;
+    font-weight: 500;
+}
+
+.financial-metric-value {
+    font-size: 1rem;
+    font-weight: 700;
+    font-family: 'Poppins', sans-serif;
+}
+
+.financial-metric-trend {
+    font-size: 0.75rem;
+    margin-left: 0.5rem;
+    opacity: 0.75;
 }

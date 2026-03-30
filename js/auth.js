@@ -49,13 +49,17 @@ function canViewSensitive() {
 
 // Show/hide the login screen
 function showLoginScreen() {
-    document.getElementById('loginScreen').classList.remove('hidden');
-    document.getElementById('mainApp').classList.add('hidden');
+    const loginScreen = document.getElementById('loginScreen');
+    const mainApp = document.getElementById('mainApp');
+    if (loginScreen) loginScreen.classList.remove('hidden');
+    if (mainApp) mainApp.classList.add('hidden');
 }
 
 function hideLoginScreen() {
-    document.getElementById('loginScreen').classList.add('hidden');
-    document.getElementById('mainApp').classList.remove('hidden');
+    const loginScreen = document.getElementById('loginScreen');
+    const mainApp = document.getElementById('mainApp');
+    if (loginScreen) loginScreen.classList.add('hidden');
+    if (mainApp) mainApp.classList.remove('hidden');
 }
 
 // Handle login form submission
@@ -64,6 +68,7 @@ async function handleLogin(event) {
 
     const username = document.getElementById('loginUsername').value.trim();
     const password = document.getElementById('loginPassword').value;
+    const intakeMode = document.getElementById('intakeModeCheckbox')?.checked || false;
     const errorEl = document.getElementById('loginError');
     const btn = document.getElementById('loginBtn');
 
@@ -92,10 +97,20 @@ async function handleLogin(event) {
 
         if (response.ok) {
             const userProfile = await response.json();
+
+            // Add intake mode to session
+            userProfile.intakeMode = intakeMode;
+
             saveSession(userProfile);
-            updateNavUserInfo(userProfile);
-            hideLoginScreen();
-            switchTab('dashboard');
+
+            // Redirect based on intake mode
+            if (intakeMode) {
+                window.location.href = 'intake.html';
+            } else {
+                updateNavUserInfo(userProfile);
+                hideLoginScreen();
+                switchTab('dashboard');
+            }
         } else {
             errorEl.textContent = 'Ongeldige gebruikersnaam of wachtwoord';
             errorEl.classList.remove('hidden');
@@ -114,6 +129,42 @@ function handleLogout() {
     showLoginScreen();
     document.getElementById('loginUsername').value = '';
     document.getElementById('loginPassword').value = '';
+}
+
+// Switch to intake mode from admin portal
+function switchToIntakeMode() {
+    const session = getSession();
+    if (!session) {
+        alert('Je bent niet ingelogd');
+        return;
+    }
+
+    // Update session to intake mode
+    session.intakeMode = true;
+    saveSession(session);
+
+    // Redirect to intake page
+    window.location.href = 'intake.html';
+}
+
+// Switch to admin mode from intake portal (called from intake.html)
+function switchToAdminMode() {
+    const session = getSession();
+    if (!session) {
+        alert('Je bent niet ingelogd');
+        window.location.href = 'index.html';
+        return;
+    }
+
+    // Update session to admin mode
+    session.intakeMode = false;
+    saveSession(session);
+
+    // Clear intake session data
+    sessionStorage.removeItem('intakeCustomer');
+
+    // Redirect to admin portal
+    window.location.href = 'index.html';
 }
 
 function updateNavUserInfo(userProfile) {
@@ -153,6 +204,10 @@ window.fetch = function(url, options = {}) {
 
 // Initialise auth state on page load
 document.addEventListener('DOMContentLoaded', () => {
+    // Only run this on index.html (admin portal)
+    const loginScreen = document.getElementById('loginScreen');
+    if (!loginScreen) return; // Not on admin portal page
+
     const session = getSession();
     if (session) {
         updateNavUserInfo(session);

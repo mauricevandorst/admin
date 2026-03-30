@@ -1,195 +1,258 @@
 // Subscriptions management
 let globalPlansData = []; // Global variable to store plan data for billing calculations
+let _subscriptionsCache = [];
+let _subscriptionsCustomerMap = {};
+let _subscriptionsPlanMap = {};
+let _subscriptionsInvoiceCountMap = {};
+let _subSortCol = 'subscriptionNumber';
+let _subSortDir = -1;
+
+function sortSubscriptions(col) {
+    if (_subSortCol === col) {
+        _subSortDir = -_subSortDir;
+    } else {
+        _subSortCol = col;
+        _subSortDir = 1;
+    }
+    renderSubscriptionsTable();
+}
+
+function _subSortIcon(col) {
+    if (_subSortCol !== col) return '<i class="fas fa-sort ml-1 opacity-30"></i>';
+    return _subSortDir === 1
+        ? '<i class="fas fa-sort-up ml-1"></i>'
+        : '<i class="fas fa-sort-down ml-1"></i>';
+}
 
 async function loadSubscriptions() {
     try {
-        const [subscriptions, customers, plans, allInvoices] = await Promise.all([
-            getAll('subscriptions'),
-            getAll('customers'),
-            getAll('maintenance-plans'),
-            getAll('invoices')
-        ]);
+        // First, try to warmup the Function App if it's sleeping
+        await warmupFunctionApp();
+
+        // Load sequentially to avoid overwhelming cold Function App
+        const subscriptions = await getAll('subscriptions');
+        const customers = await getAll('customers');
+        const plans = await getAll('subscription-plans');
+        const allInvoices = await getAll('invoices');
 
         // Create customer lookup map
-        const customerMap = {};
+        _subscriptionsCustomerMap = {};
         if (customers && customers.length > 0) {
             customers.forEach(c => {
-                customerMap[c.customerId] = c.business?.displayName || c.business?.name || c.customerId;
+                _subscriptionsCustomerMap[c.customerId] = c.business?.displayName || c.business?.name || c.customerId;
             });
         }
 
         // Create plan lookup map  
-        const planMap = {};
+        _subscriptionsPlanMap = {};
         if (plans && plans.length > 0) {
             plans.forEach(plan => {
-                planMap[plan.planId] = plan;
+                _subscriptionsPlanMap[plan.planId] = plan;
             });
         }
 
         // Aantal gekoppelde facturen per abonnement
-        const invoiceCountMap = {};
+        _subscriptionsInvoiceCountMap = {};
         (allInvoices || []).forEach(inv => {
             if (inv.invoiceSource === 'subscription' && inv.subscriptionId) {
-                invoiceCountMap[inv.subscriptionId] = (invoiceCountMap[inv.subscriptionId] || 0) + 1;
+                _subscriptionsInvoiceCountMap[inv.subscriptionId] = (_subscriptionsInvoiceCountMap[inv.subscriptionId] || 0) + 1;
             }
         });
 
-        let html = `
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-2xl font-bold">Abonnementen</h2>
-                <button onclick="showCreateSubscription()" 
-                        class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded">
-                    <i class="fas fa-plus"></i> Nieuw
-                </button>
-            </div>
+        _subscriptionsCache = subscriptions || [];
+        renderSubscriptionsTable();
+    } catch (error) {
+        console.error('Error loading subscriptions:', error.message);
+        showError(`Fout bij laden abonnementen: ${error.message}`);
+    }
+}
+
+function renderSubscriptionsTable() {
+    const thSort = 'px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase text-nowrap cursor-pointer hover:bg-gray-100 select-none';
+
+    const sorted = [..._subscriptionsCache].sort((a, b) => {
+        if (_subSortCol === 'subscriptionNumber') {
+            const aNum = parseInt((a.subscriptionNumber || '').replace(/\D/g, ''), 10) || 0;
+            const bNum = parseInt((b.subscriptionNumber || '').replace(/\D/g, ''), 10) || 0;
+            return (aNum - bNum) * _subSortDir;
+        }
+        if (_subSortCol === 'monthlyPrice') {
+            return ((a.monthlyPrice || 0) - (b.monthlyPrice || 0)) * _subSortDir;
+        }
+        let aVal = '', bVal = '';
+        if (_subSortCol === 'customer') {
+            aVal = _subscriptionsCustomerMap[a.customerId] || '';
+            bVal = _subscriptionsCustomerMap[b.customerId] || '';
+        } else if (_subSortCol === 'plan') {
+            aVal = a.planName || '';
+            bVal = b.planName || '';
+        } else if (_subSortCol === 'billingFrequency') {
+            aVal = a.billingFrequency || '';
+            bVal = b.billingFrequency || '';
+        } else if (_subSortCol === 'status') {
+            aVal = a.status || '';
+            bVal = b.status || '';
+        }
+        return aVal < bVal ? -_subSortDir : aVal > bVal ? _subSortDir : 0;
+    });
+
+    let html = `
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold">Abonnementen</h2>
+            <button onclick="showCreateSubscription()" 
+                    class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded">
+                <i class="fas fa-plus"></i> Nieuw
+            </button>
+        </div>
+    `;
+
+    if (sorted.length === 0) {
+        html += '<p class="text-gray-500 text-center py-8">Geen abonnementen gevonden</p>';
+    } else {
+        html += '<div class="overflow-x-auto"><table class="min-w-full divide-y divide-gray-200">';
+        html += `
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="${thSort}" onclick="sortSubscriptions('subscriptionNumber')">Nummer ${_subSortIcon('subscriptionNumber')}</th>
+                    <th class="${thSort}" onclick="sortSubscriptions('customer')">Klant ${_subSortIcon('customer')}</th>
+                    <th class="${thSort}" onclick="sortSubscriptions('plan')">Plan ${_subSortIcon('plan')}</th>
+                    <th class="${thSort}" onclick="sortSubscriptions('monthlyPrice')">Prijs ${_subSortIcon('monthlyPrice')}</th>
+                    <th class="${thSort}" onclick="sortSubscriptions('billingFrequency')">Frequentie ${_subSortIcon('billingFrequency')}</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Facturatie</th>
+                    <th class="${thSort}" onclick="sortSubscriptions('status')">Status ${_subSortIcon('status')}</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Acties</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
         `;
 
-        if (!subscriptions || subscriptions.length === 0) {
-            html += '<p class="text-gray-500 text-center py-8">Geen abonnementen gevonden</p>';
-        } else {
-            html += '<div class="overflow-x-auto"><table class="min-w-full divide-y divide-gray-200">';
-            html += `
-                <thead class="bg-gray-50">
-                    <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nummer</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Klant</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Plan</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Prijs</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Frequentie</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Facturatie</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Acties</th>
-                    </tr>
-                </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
-            `;
+        sorted.forEach(sub => {
+            const statusClass = sub.status === 'active' ? 'bg-green-100 text-green-800' :
+                sub.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                    'bg-gray-100 text-gray-800';
 
-            subscriptions.forEach(sub => {
-                const statusClass = sub.status === 'active' ? 'bg-green-100 text-green-800' :
-                    sub.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                        'bg-gray-100 text-gray-800';
+            const linkedCount = _subscriptionsInvoiceCountMap[sub.id] || 0;
+            const paymentStatusClass =
+                sub.paymentStatus === 'invoiced' ? 'bg-green-100 text-green-800' :
+                sub.paymentStatus === 'upcoming' ? 'bg-orange-100 text-orange-800' :
+                linkedCount > 0 ? 'bg-blue-100 text-blue-800' :
+                'bg-yellow-100 text-yellow-800';
+            const paymentStatusLabel =
+                sub.paymentStatus === 'invoiced' ? 'Gefactureerd' :
+                sub.paymentStatus === 'upcoming' ? 'Binnenkort te factureren' :
+                linkedCount > 0 ? 'Nieuwe periode' :
+                'Openstaand';
 
-                const linkedCount = invoiceCountMap[sub.id] || 0;
-                const paymentStatusClass =
-                    sub.paymentStatus === 'invoiced' ? 'bg-green-100 text-green-800' :
-                    sub.paymentStatus === 'upcoming' ? 'bg-orange-100 text-orange-800' :
-                    linkedCount > 0 ? 'bg-blue-100 text-blue-800' :
-                    'bg-yellow-100 text-yellow-800';
-                const paymentStatusLabel =
-                    sub.paymentStatus === 'invoiced' ? 'Gefactureerd' :
-                    sub.paymentStatus === 'upcoming' ? 'Binnenkort te factureren' :
-                    linkedCount > 0 ? 'Nieuwe periode' :
-                    'Openstaand';
+            const customerName = _subscriptionsCustomerMap[sub.customerId] || sub.customerId;
 
-                const customerName = customerMap[sub.customerId] || sub.customerId;
+            const billingFrequency = sub.billingFrequency || 'monthly';
+            const billingFrequencyText = {
+                'monthly': 'Maandelijks',
+                'quarterly': 'Kwartaal',
+                'halfyearly': 'Halfjaarlijks', 
+                'yearly': 'Jaarlijks'
+            }[billingFrequency] || 'Maandelijks';
 
-                const billingFrequency = sub.billingFrequency || 'monthly';
-                const billingFrequencyText = {
-                    'monthly': 'Maandelijks',
-                    'quarterly': 'Kwartaal',
-                    'halfyearly': 'Halfjaarlijks', 
-                    'yearly': 'Jaarlijks'
-                }[billingFrequency] || 'Maandelijks';
+            // Get discount from the plan, not from subscription
+            const plan = _subscriptionsPlanMap[sub.planId];
+            const discounts = plan ? {
+                quarterly: plan.quarterlyDiscount || 0,
+                halfyearly: plan.halfyearlyDiscount || 0,
+                yearly: plan.yearlyDiscount || 0
+            } : { quarterly: 0, halfyearly: 0, yearly: 0 };
 
-                // Get discount from the plan, not from subscription
-                const plan = planMap[sub.planId];
-                const discounts = plan ? {
-                    quarterly: plan.quarterlyDiscount || 0,
-                    halfyearly: plan.halfyearlyDiscount || 0,
-                    yearly: plan.yearlyDiscount || 0
-                } : { quarterly: 0, halfyearly: 0, yearly: 0 };
+            const billingAmount = getBillingAmount(sub.monthlyPrice, billingFrequency, discounts);
 
-                const billingAmount = getBillingAmount(sub.monthlyPrice, billingFrequency, discounts);
+            // Calculate VAT and price including VAT
+            const vatPercentage = sub.vatPercentage || 21;
+            const billingAmountInclVat = Math.round(billingAmount * (1 + vatPercentage / 100) * 100) / 100;
 
-                const termsSummary = calcTermsSummary(sub, linkedCount);
-                let facturatieHtml;
-                if (termsSummary && termsSummary.expectedDue > 0) {
-                    if (termsSummary.open > 0) {
-                        let parts = '';
-                        if (termsSummary.pastOpen > 0) {
-                            parts += `<div class="flex items-center gap-1.5 mb-0.5"><i class="fas fa-exclamation-triangle text-red-500 text-xs"></i><span class="text-xs font-semibold text-red-700">${termsSummary.pastOpen} niet gefactureerd</span></div>`;
-                        }
-                        if (termsSummary.currentOpen > 0) {
-                            parts += `<div class="flex items-center gap-1.5 mb-0.5"><i class="fas fa-clock text-orange-500 text-xs"></i><span class="text-xs font-semibold text-orange-600">1 lopende termijn</span></div>`;
-                        }
-                        facturatieHtml = parts + `<div class="text-xs text-gray-500">${termsSummary.invoiced}/${termsSummary.expectedDue} termijnen</div>`;
-                    } else {
-                        facturatieHtml = `<div class="flex items-center gap-1.5 mb-0.5"><i class="fas fa-check-circle text-green-500 text-xs"></i><span class="text-xs font-semibold text-green-700">Alles gefactureerd</span></div><div class="text-xs text-gray-500">${termsSummary.invoiced}/${termsSummary.expectedDue} termijnen</div>`;
+            const termsSummary = calcTermsSummary(sub, linkedCount);
+            let facturatieHtml;
+            if (termsSummary && termsSummary.expectedDue > 0) {
+                if (termsSummary.open > 0) {
+                    let parts = '';
+                    if (termsSummary.pastOpen > 0) {
+                        parts += `<div class="flex items-center gap-1.5 mb-0.5"><i class="fas fa-exclamation-triangle text-red-500 text-xs"></i><span class="text-xs font-semibold text-red-700">${termsSummary.pastOpen} niet gefactureerd</span></div>`;
                     }
+                    if (termsSummary.currentOpen > 0) {
+                        parts += `<div class="flex items-center gap-1.5 mb-0.5"><i class="fas fa-clock text-orange-500 text-xs"></i><span class="text-xs font-semibold text-orange-600">1 lopende termijn</span></div>`;
+                    }
+                    facturatieHtml = parts + `<div class="text-xs text-gray-500">${termsSummary.invoiced}/${termsSummary.expectedDue} termijnen</div>`;
                 } else {
-                    facturatieHtml = '<span class="text-xs text-gray-400">—</span>';
+                    facturatieHtml = `<div class="flex items-center gap-1.5 mb-0.5"><i class="fas fa-check-circle text-green-500 text-xs"></i><span class="text-xs font-semibold text-green-700">Alles gefactureerd</span></div><div class="text-xs text-gray-500">${termsSummary.invoiced}/${termsSummary.expectedDue} termijnen</div>`;
                 }
-                if (sub.nextInvoiceDate) {
-                    facturatieHtml += `<div class="text-xs text-gray-400 mt-0.5">Volgende: ${formatDate(sub.nextInvoiceDate)}</div>`;
-                }
+            } else {
+                facturatieHtml = '<span class="text-xs text-gray-400">—</span>';
+            }
+            if (sub.nextInvoiceDate) {
+                facturatieHtml += `<div class="text-xs text-gray-400 mt-0.5">Volgende: ${formatDate(sub.nextInvoiceDate)}</div>`;
+            }
 
-                html += `
-                    <tr class="hover:bg-gray-50">
-                        <td class="px-6 py-4 whitespace-nowrap text-sm">
-                            <span class="font-mono font-medium text-blue-600 hover:text-blue-900 hover:underline cursor-pointer"
-                                  onclick="showEditSubscription('${sub.id}')">${sub.subscriptionNumber || '—'}</span>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm">
-                            <div class="font-medium">${customerName}</div>
-                            <div class="text-xs text-gray-500">Start: ${formatDate(sub.startDate)}</div>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm">
-                            <div class="font-medium">${sub.planName || 'N/A'}</div>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm">
-                            <div>${formatCurrency(billingAmount)}</div>
-                            <div class="text-xs text-gray-500">
-                                ${formatCurrency(sub.monthlyPrice)}/mnd
-                                ${(() => {
-                                    const plan = planMap[sub.planId];
-                                    const currentDiscount = billingFrequency === 'quarterly' ? (plan?.quarterlyDiscount || 0) :
-                                                          billingFrequency === 'halfyearly' ? (plan?.halfyearlyDiscount || 0) :
-                                                          billingFrequency === 'yearly' ? (plan?.yearlyDiscount || 0) : 0;
-                                    return currentDiscount > 0 ? `<span class="text-orange-600 font-medium ml-1">-${currentDiscount}%</span>` : '';
-                                })()}
-                            </div>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm">${billingFrequencyText}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm">
-                            ${facturatieHtml}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm">
-                            <span class="px-2 py-1 text-xs font-semibold rounded ${statusClass}">
-                                ${sub.status || 'N/A'}
-                            </span>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+            html += `
+                <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        <span class="font-mono font-medium text-blue-600 hover:text-blue-900 hover:underline cursor-pointer"
+                              onclick="showEditSubscription('${sub.id}')">${sub.subscriptionNumber || '—'}</span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        <div class="font-medium">${customerName}</div>
+                        <div class="text-xs text-gray-500">Start: ${formatDate(sub.startDate)}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        <div class="font-medium">${sub.planName || 'N/A'}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        <div class="font-medium">${formatCurrency(billingAmount)} <span class="text-xs text-gray-500">${formatCurrency(billingAmountInclVat)} incl.</span></div>
+                        <div class="text-xs text-gray-500">
+                            ${formatCurrency(sub.monthlyPrice)}/mnd
                             ${(() => {
-                                const alreadyInvoiced = sub.paymentStatus === 'invoiced';
-                                return alreadyInvoiced
-                                    ? `<button disabled class="text-gray-300 mr-3 cursor-not-allowed" title="Al gefactureerd tot ${formatDate(sub.nextInvoiceDate)}">
-                                           <i class="fas fa-file-invoice"></i>
-                                       </button>`
-                                    : `<button onclick="showGenerateInvoiceFromSubscription('${sub.id}')"
-                                               class="text-purple-600 hover:text-purple-900 mr-3" title="Factuur Genereren">
-                                           <i class="fas fa-file-invoice"></i>
-                                       </button>`;
+                                const plan = _subscriptionsPlanMap[sub.planId];
+                                const currentDiscount = billingFrequency === 'quarterly' ? (plan?.quarterlyDiscount || 0) :
+                                                      billingFrequency === 'halfyearly' ? (plan?.halfyearlyDiscount || 0) :
+                                                      billingFrequency === 'yearly' ? (plan?.yearlyDiscount || 0) : 0;
+                                return currentDiscount > 0 ? `<span class="text-orange-600 font-medium ml-1">-${currentDiscount}%</span>` : '';
                             })()}
-                            <button onclick="showEditSubscription('${sub.id}')" 
-                                    class="text-blue-600 hover:text-blue-900 mr-3" title="Abonnement Bewerken">
-                                <i class="fas fa-edit"></i>
-                            </button>
-                            <button onclick="deleteSubscription('${sub.id}')" 
-                                    class="text-red-600 hover:text-red-900" title="Abonnement Verwijderen">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </td>
-                    </tr>
-                `;
-            });
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">${billingFrequencyText}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        ${facturatieHtml}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        <span class="px-2 py-1 text-xs font-semibold rounded ${statusClass}">
+                            ${sub.status || 'N/A'}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        ${(() => {
+                            const alreadyInvoiced = sub.paymentStatus === 'invoiced';
+                            return alreadyInvoiced
+                                ? `<button disabled class="text-gray-300 mr-3 cursor-not-allowed" title="Al gefactureerd tot ${formatDate(sub.nextInvoiceDate)}">
+                                       <i class="fas fa-file-invoice"></i>
+                                   </button>`
+                                : `<button onclick="showGenerateInvoiceFromSubscription('${sub.id}')"
+                                           class="text-purple-600 hover:text-purple-900 mr-3" title="Factuur Genereren">
+                                       <i class="fas fa-file-invoice"></i>
+                                   </button>`;
+                        })()}
+                        <button onclick="showEditSubscription('${sub.id}')" 
+                                class="text-blue-600 hover:text-blue-900 mr-3" title="Abonnement Bewerken">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button onclick="deleteSubscription('${sub.id}')" 
+                                class="text-red-600 hover:text-red-900" title="Abonnement Verwijderen">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
 
-            html += '</tbody></table></div>';
-        }
-
-        document.getElementById('content').innerHTML = html;
-    } catch (error) {
-        showError(error.message);
+        html += '</tbody></table></div>';
     }
+
+    document.getElementById('content').innerHTML = html;
 }
 
 function getSubscriptionForm(subscription = null, allSubscriptions = [], customers = [], plans = [], linkedInvoices = []) {
@@ -252,7 +315,7 @@ function getSubscriptionForm(subscription = null, allSubscriptions = [], custome
             `}
 
             <div>
-                <label class="block text-sm font-medium mb-2">Onderhoudsplan<span class="text-red-600 ml-1">*</span></label>
+                <label class="block text-sm font-medium mb-2">Abonnementsplan<span class="text-red-600 ml-1">*</span></label>
                 <select id="planId" ${subscription ? 'disabled' : ''} required 
                         onchange="updateSubscriptionPlanFields()"
                         class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500 ${subscription ? 'bg-gray-100' : ''}">
@@ -286,6 +349,14 @@ function getSubscriptionForm(subscription = null, allSubscriptions = [], custome
                             class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500">
                     </div>
                     <div>
+                        <label class="block text-sm font-medium mb-2">BTW percentage (%)<span class="text-red-600 ml-1">*</span></label>
+                        <input type="number" step="0.01" id="vatPercentage" value="${sub.vatPercentage || 21}" required
+                            onchange="updateBillingAmount()"
+                            class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 gap-4">
+                    <div>
                         <label class="block text-sm font-medium mb-2">Factureringsfrequentie<span class="text-red-600 ml-1">*</span></label>
                         <select id="billingFrequency" required onchange="updateBillingAmount()" class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500">
                             <option value="monthly" ${!sub.billingFrequency || sub.billingFrequency === 'monthly' ? 'selected' : ''}>Maandelijks</option>
@@ -296,7 +367,7 @@ function getSubscriptionForm(subscription = null, allSubscriptions = [], custome
                     </div>
                 </div>
                 <div id="billingAmountInfo" class="text-sm text-gray-600 bg-white p-2 rounded border">
-                    <span id="billingAmountText">Factuurbedrag wordt berekend op basis van onderhoudsplan en frequentie</span>
+                    <span id="billingAmountText">Factuurbedrag wordt berekend op basis van abonnementsplan en frequentie</span>
                 </div>
             </div>
 
@@ -462,6 +533,12 @@ function updateBillingAmount() {
         const billingAmount = getBillingAmount(monthlyPrice, frequency, discounts);
         const discountAmount = getBillingDiscountAmount(monthlyPrice, frequency, discounts);
 
+        // Get VAT percentage
+        const vatPercentageField = document.getElementById('vatPercentage');
+        const vatPercentage = vatPercentageField ? (parseFloat(vatPercentageField.value) || 21) : 21;
+        const billingAmountInclVat = Math.round(billingAmount * (1 + vatPercentage / 100) * 100) / 100;
+        const vatAmount = Math.round((billingAmountInclVat - billingAmount) * 100) / 100;
+
         const frequencyText = {
             'monthly': 'maand',
             'quarterly': 'kwartaal',
@@ -469,17 +546,22 @@ function updateBillingAmount() {
             'yearly': 'jaar'
         }[frequency] || 'maand';
 
-        let displayText = `<i class="fas fa-calculator text-green-600"></i> Factuurbedrag: <strong>${formatCurrency(billingAmount)}</strong> per ${frequencyText}`;
+        let displayText = `<div class="space-y-1">`;
+        displayText += `<div><i class="fas fa-calculator text-green-600"></i> <strong>Ex BTW:</strong> ${formatCurrency(billingAmount)} per ${frequencyText}</div>`;
+        displayText += `<div><i class="fas fa-euro-sign text-green-700"></i> <strong>Incl ${vatPercentage}% BTW:</strong> <span class="text-green-700 font-bold">${formatCurrency(billingAmountInclVat)}</span> per ${frequencyText}</div>`;
+        displayText += `<div class="text-xs text-gray-500"><i class="fas fa-receipt"></i> BTW bedrag: ${formatCurrency(vatAmount)}</div>`;
 
         // Show discount information if applicable
         if (discountAmount > 0) {
             const discountPercentage = discounts[frequency] || 0;
-            displayText += `<br><small class="text-orange-600"><i class="fas fa-tag"></i> ${discountPercentage}% plankorting: -${formatCurrency(discountAmount)} (van ${formatCurrency(baseAmount)})</small>`;
+            displayText += `<div class="text-xs text-orange-600 mt-1"><i class="fas fa-tag"></i> ${discountPercentage}% plankorting: -${formatCurrency(discountAmount)} (van ${formatCurrency(baseAmount)})</div>`;
         }
+
+        displayText += `</div>`;
 
         billingAmountText.innerHTML = displayText;
     } else {
-        billingAmountText.innerHTML = '<i class="fas fa-info-circle text-gray-500"></i> Factuurbedrag wordt berekend op basis van onderhoudsplan en frequentie';
+        billingAmountText.innerHTML = '<i class="fas fa-info-circle text-gray-500"></i> Factuurbedrag wordt berekend op basis van abonnementsplan en frequentie';
     }
 }
 
@@ -499,6 +581,7 @@ function getSubscriptionData() {
         startDate: document.getElementById('startDate').value,
         endDate: endDate || null,
         monthlyPrice: parseFloat(document.getElementById('monthlyPrice').value),
+        vatPercentage: parseFloat(document.getElementById('vatPercentage').value) || 21,
         billingFrequency: document.getElementById('billingFrequency').value,
         status: document.getElementById('status').value,
         notes: document.getElementById('notes').value.trim() || null
@@ -528,7 +611,7 @@ function validateSubscriptionData(data) {
 
     // Validate plan
     if (!data.planId || data.planId.length === 0) {
-        errors.push({ field: 'planId', message: 'Selecteer een onderhoudsplan' });
+        errors.push({ field: 'planId', message: 'Selecteer een abonnementsplan' });
     }
 
     // Validate start date
@@ -570,13 +653,18 @@ function validateSubscriptionData(data) {
     return errors;
 }
 
-function showCreateSubscription() {
-    // Fetch subscriptions, customers, and plans in parallel
-    Promise.all([
-        getAll('subscriptions'),
-        getAll('customers'),
-        getAll('maintenance-plans')
-    ]).then(([subscriptions, customers, plans]) => {
+async function showCreateSubscription() {
+    const loadingModal = showLoadingModal('Formulier voorbereiden...');
+    try {
+        // Fetch subscriptions, customers, and plans in parallel
+        const [subscriptions, customers, plans] = await Promise.all([
+            getAll('subscriptions'),
+            getAll('customers'),
+            getAll('subscription-plans')
+        ]);
+
+        hideLoadingModal();
+
         // Store plans globally for billing calculations
         globalPlansData = plans || [];
 
@@ -599,20 +687,24 @@ function showCreateSubscription() {
         setTimeout(() => {
             updateBillingAmount();
         }, 100);
-    }).catch(error => {
+    } catch (error) {
+        hideLoadingModal();
         showToast('Kan gegevens niet laden: ' + error.message, 'error');
-    });
+    }
 }
 
 async function showEditSubscription(id) {
+    const loadingModal = showLoadingModal('Abonnement laden...');
     try {
         const [subscription, allSubscriptions, customers, plans, allInvoices] = await Promise.all([
             getById('subscriptions', id),
             getAll('subscriptions'),
             getAll('customers'),
-            getAll('maintenance-plans'),
+            getAll('subscription-plans'),
             getAll('invoices')
         ]);
+
+        hideLoadingModal();
 
         // Store plans globally for billing calculations
         globalPlansData = plans || [];
@@ -642,6 +734,7 @@ async function showEditSubscription(id) {
             updateBillingAmount();
         }, 100);
     } catch (error) {
+        hideLoadingModal();
         showToast('Fout bij laden abonnement: ' + error.message, 'error');
     }
 }
@@ -882,7 +975,7 @@ function buildTermsOverviewHtml(terms, subscriptionId = null, prefillMode = fals
         let actionCell = '<td class="px-3 py-2 text-xs"></td>';
         if (subscriptionId && (term.status === 'open' || term.status === 'current')) {
             const onclickHandler = prefillMode
-                ? `document.getElementById('genPeriodStart').value='${periodStartStr}'; document.getElementById('genPeriodEnd').value='${periodEndStr}';`
+                ? `(function() { var sel = document.getElementById('genPeriodSelect'); if(sel) { sel.value='${periodStartStr}|${periodEndStr}'; sel.dispatchEvent(new Event('change')); sel.scrollIntoView({behavior: 'smooth', block: 'center'}); sel.classList.add('ring-4', 'ring-purple-300'); setTimeout(() => sel.classList.remove('ring-4', 'ring-purple-300'), 2000); } })();`
                 : `closeAllModals(); setTimeout(() => showGenerateInvoiceFromSubscription('${subscriptionId}', '${periodStartStr}', '${periodEndStr}'), 300);`;
             actionCell = `<td class="px-3 py-2 text-xs">
                 <button onclick="${onclickHandler}"
@@ -1033,7 +1126,7 @@ async function showAddSubscriptionPayment(subscriptionId) {
     try {
         const [subscription, plans] = await Promise.all([
             getById('subscriptions', subscriptionId),
-            getAll('maintenance-plans')
+            getAll('subscription-plans')
         ]);
 
         // Find the plan associated with this subscription
@@ -1160,7 +1253,7 @@ async function showAddSubscriptionPayment(subscriptionId) {
                     const [subscription, allInvoices, allPlans] = await Promise.all([
                         getById('subscriptions', subscriptionId),
                         getAll('invoices'),
-                        getAll('maintenance-plans')
+                        getAll('subscription-plans')
                     ]);
                     const billingFrequency = subscription?.billingFrequency || 'monthly';
 
@@ -1203,6 +1296,28 @@ async function showAddSubscriptionPayment(subscriptionId) {
                         yearly:     'Jaarlijks'
                     }[billingFrequency] || 'Maandelijks';
 
+                    // Bouw dropdown opties voor beschikbare termijnen
+                    const termOptions = genTerms.filter(t => t.status !== 'invoiced').map(term => {
+                        const periodStartStr = toLocalDateStr(term.periodStart);
+                        const periodEndStr = toLocalDateStr(term.periodEnd);
+                        const isSelected = (prefillStart === periodStartStr && prefillEnd === periodEndStr) || 
+                                         (!prefillStart && !prefillEnd && term.status === 'current') ||
+                                         (!prefillStart && !prefillEnd && !genTerms.find(t => t.status === 'current') && term.status === 'open');
+                        let statusLabel = '';
+                        if (term.status === 'open') statusLabel = ' (Openstaand)';
+                        else if (term.status === 'current') statusLabel = ' (Lopende periode)';
+                        else if (term.status === 'future') statusLabel = ' (Toekomstig)';
+                        return {
+                            value: `${periodStartStr}|${periodEndStr}`,
+                            label: `Termijn ${term.termNumber}: ${formatDate(term.periodStart)} t/m ${formatDate(term.periodEnd)}${statusLabel}`,
+                            selected: isSelected
+                        };
+                    });
+
+                    const termOptionsHtml = termOptions.map(opt => 
+                        `<option value="${opt.value}" ${opt.selected ? 'selected' : ''}>${opt.label}</option>`
+                    ).join('');
+
                     const formHtml = `
                         <div class="space-y-4">
                             <!-- Abonnementinformatie -->
@@ -1229,20 +1344,17 @@ async function showAddSubscriptionPayment(subscriptionId) {
                             <div class="bg-purple-50 border border-purple-200 rounded-lg p-3">
                                 <p class="text-sm text-purple-800">
                                     <i class="fas fa-info-circle mr-2"></i>
-                                    Er wordt een factuur aangemaakt met één regel voor de opgegeven facturatieperiode.
+                                    Selecteer een geldige facturatieperiode op basis van de betalingsfrequentie (${billingFrequencyText}).
                                 </p>
                             </div>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-sm font-medium mb-2">Periode van<span class="text-red-600 ml-1">*</span></label>
-                                       <input type="date" id="genPeriodStart" value="${prefillStart || defaultPeriodStart}"
-                                                   class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-purple-500">
-                                        </div>
-                                        <div>
-                                            <label class="block text-sm font-medium mb-2">Periode tot<span class="text-red-600 ml-1">*</span></label>
-                                            <input type="date" id="genPeriodEnd" value="${prefillEnd || defaultPeriodEnd}"
-                                           class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-purple-500">
-                                </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-2">Facturatieperiode<span class="text-red-600 ml-1">*</span></label>
+                                <select id="genPeriodSelect" class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-purple-500">
+                                    ${termOptionsHtml || '<option value="">Geen beschikbare termijnen</option>'}
+                                </select>
+                                <p class="text-xs text-gray-500 mt-1">Alleen geldige termijnen op basis van ${billingFrequencyText.toLowerCase()} betalingsfrequentie</p>
+                                <input type="hidden" id="genPeriodStart" value="${prefillStart || defaultPeriodStart}">
+                                <input type="hidden" id="genPeriodEnd" value="${prefillEnd || defaultPeriodEnd}">
                             </div>
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
@@ -1284,15 +1396,14 @@ async function showAddSubscriptionPayment(subscriptionId) {
                     `;
 
                     const genModal = createModal('Factuur Genereren vanuit Abonnement', formHtml, async () => {
-                        const periodStart    = document.getElementById('genPeriodStart').value;
-                        const periodEnd      = document.getElementById('genPeriodEnd').value;
+                        const periodSelect = document.getElementById('genPeriodSelect').value;
+                        if (!periodSelect) throw new Error('Selecteer een facturatieperiode');
+
+                        const [periodStart, periodEnd] = periodSelect.split('|');
                         const dueDate        = document.getElementById('genDueDate').value;
                         const vatRaw         = parseFloat(document.getElementById('genVatPercentage').value);
                         const vatPercentage  = isNaN(vatRaw) ? 21 : vatRaw;
                         const notes          = document.getElementById('genNotes').value.trim();
-
-                        if (!periodStart || !periodEnd) throw new Error('Facturatieperiode is verplicht');
-                        if (new Date(periodEnd) < new Date(periodStart)) throw new Error('Einddatum moet na startdatum liggen');
 
                         const body = { billingPeriodStart: periodStart, billingPeriodEnd: periodEnd, vatPercentage };
                         if (dueDate) body.dueDate = dueDate;
@@ -1307,7 +1418,18 @@ async function showAddSubscriptionPayment(subscriptionId) {
                         loadSubscriptions();
                     }, 'Factuur Genereren', 'lg');
 
-                    genModal.querySelector('#genPeriodStart').addEventListener('change', function () {
-                        genModal.querySelector('#genPeriodEnd').value = calcPeriodEnd(this.value, billingFrequency);
+                    // Update hidden fields when dropdown changes
+                    genModal.querySelector('#genPeriodSelect').addEventListener('change', function () {
+                        const [start, end] = this.value.split('|');
+                        genModal.querySelector('#genPeriodStart').value = start || '';
+                        genModal.querySelector('#genPeriodEnd').value = end || '';
                     });
+
+                    // Initialize hidden fields with the selected dropdown value
+                    const initialSelect = genModal.querySelector('#genPeriodSelect');
+                    if (initialSelect && initialSelect.value) {
+                        const [start, end] = initialSelect.value.split('|');
+                        genModal.querySelector('#genPeriodStart').value = start || '';
+                        genModal.querySelector('#genPeriodEnd').value = end || '';
+                    }
                 }

@@ -1,35 +1,11 @@
 // Dashboard management
 async function loadDashboard() {
     try {
-        // Fetch all data in parallel - betalingen zijn nu onderdeel van facturen
-        const [customers, invoices, subscriptions, orders] = await Promise.all([
-            getAll('customers'),
-            getAll('invoices'),
-            getAll('subscriptions'),
-            getAll('orders')
-        ]);
+        // Gebruik de geoptimaliseerde dashboard API endpoint
+        const dashboardData = await apiRequest('/dashboard');
 
-        // Extract payments from invoices
-        const payments = [];
-        if (invoices && invoices.length > 0) {
-            invoices.forEach(invoice => {
-                if (invoice.payments && invoice.payments.length > 0) {
-                    invoice.payments.forEach(payment => {
-                        payments.push({
-                            ...payment,
-                            invoiceId: invoice.id,
-                            invoiceNumber: invoice.invoiceNumber
-                        });
-                    });
-                }
-            });
-        }
-
-        // Calculate statistics
-        const stats = calculateStats(customers, invoices, payments, subscriptions, orders);
-
-        // Render dashboard
-        renderDashboard(stats, invoices, payments, subscriptions, customers, orders);
+        // Render dashboard met API data
+        renderDashboardFromAPI(dashboardData);
     } catch (error) {
         showError(error.message);
     }
@@ -62,6 +38,10 @@ function calculateStats(customers, invoices, payments, subscriptions, orders) {
     let totalInvoiceAmount = 0;
     let totalPaidFromPayments = 0;
     let pendingAmount = 0;
+    let overdueInvoicesAmount = 0;
+    let invoicesDueSoon = 0;
+    let invoicesDueSoonAmount = 0;
+    const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
     safeInvoices.forEach((invoice) => {
         const invoiceTotal = invoice.totalAmount || 0;
@@ -76,7 +56,11 @@ function calculateStats(customers, invoices, payments, subscriptions, orders) {
 
         // Determine actual status based on payments
         let actualStatus = invoice.status;
-        if (paidForInvoice >= invoiceTotal && invoiceTotal > 0) {
+
+        // Facturen met €0 zijn automatisch betaald (hoeven niet betaald te worden)
+        if (invoiceTotal === 0 && invoice.status !== 'cancelled') {
+            actualStatus = 'paid';
+        } else if (paidForInvoice >= invoiceTotal && invoiceTotal > 0) {
             actualStatus = 'paid';
         } else if (paidForInvoice > 0) {
             actualStatus = 'partially_paid';
@@ -93,8 +77,13 @@ function calculateStats(customers, invoices, payments, subscriptions, orders) {
             partiallyPaidInvoices += 1;
         } else if (actualStatus === 'overdue') {
             overdueInvoices += 1;
+            overdueInvoicesAmount += remainingForInvoice;
         } else {
             pendingInvoices += 1;
+            if (dueDate && dueDate >= now && dueDate <= sevenDaysFromNow) {
+                invoicesDueSoon++;
+                invoicesDueSoonAmount += remainingForInvoice;
+            }
         }
     });
 
@@ -113,7 +102,7 @@ function calculateStats(customers, invoices, payments, subscriptions, orders) {
     }).length || 0;
 
     const monthlyRecurringRevenue = subscriptions?.filter(s => s.status === 'active')
-        .reduce((sum, s) => sum + (s.price || 0), 0) || 0;
+        .reduce((sum, s) => sum + (s.monthlyPrice || 0), 0) || 0;
 
     const collectionRate = totalInvoiceAmount > 0 ? (totalPaidFromPayments / totalInvoiceAmount) * 100 : 0;
     const activeSubscriptionRate = totalSubscriptions > 0 ? (activeSubscriptions / totalSubscriptions) * 100 : 0;
@@ -129,6 +118,24 @@ function calculateStats(customers, invoices, payments, subscriptions, orders) {
     const pendingOrderAmount = safeOrders
         .filter(o => o.status === 'confirmed')
         .reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+
+    const invoicesByOrderId = {};
+    safeInvoices.forEach(inv => {
+        if (inv.orderId) {
+            if (!invoicesByOrderId[inv.orderId]) invoicesByOrderId[inv.orderId] = [];
+            invoicesByOrderId[inv.orderId].push(inv);
+        }
+    });
+    const openOrders = safeOrders.filter(o => {
+        if (o.status === 'cancelled') return false;
+        if (o.status !== 'invoiced') return true;
+        const linked = invoicesByOrderId[o.id] || [];
+        if (linked.length === 0) return true;
+        return !linked.every(inv => {
+            const paid = (inv.payments || []).reduce((sum, p) => sum + (p.amount || 0), 0);
+            return inv.totalAmount <= 0 || paid >= inv.totalAmount;
+        });
+    }).length;
 
     // Subscription billing alerts
     const invoicesBySubscription = {};
@@ -190,6 +197,9 @@ function calculateStats(customers, invoices, payments, subscriptions, orders) {
         }
     });
 
+    const openSubscriptionTermsCount = subscriptionsWithOpenTerms.reduce((sum, x) => sum + x.open, 0);
+    const openSubscriptionsCount = subscriptionsWithOpenTerms.length;
+
     return {
         totalCustomers,
         totalInvoices,
@@ -197,6 +207,9 @@ function calculateStats(customers, invoices, payments, subscriptions, orders) {
         partiallyPaidInvoices,
         pendingInvoices,
         overdueInvoices,
+        overdueInvoicesAmount,
+        invoicesDueSoon,
+        invoicesDueSoonAmount,
         totalInvoiceAmount,
         paidAmount: totalPaidFromPayments,
         pendingAmount,
@@ -210,20 +223,72 @@ function calculateStats(customers, invoices, payments, subscriptions, orders) {
         activeSubscriptionRate,
         overduePressure,
         totalOrders,
+        openOrders,
         draftOrders,
         confirmedOrders,
         invoicedOrders,
         cancelledOrders,
         pendingOrderAmount,
+        openSubscriptionTermsCount,
+        openSubscriptionsCount,
         subscriptionsWithOpenTerms,
         subscriptionsUpcomingBilling
     };
 }
 
-function renderDashboard(stats, invoices, payments, subscriptions, customers, orders) {
+// Nieuwe functie: Render dashboard met API data
+function renderDashboardFromAPI(data) {
     const content = document.getElementById('content');
     const now = new Date();
-    const overdueAmount = stats.pendingAmount * (stats.overduePressure / 100);
+
+    // Map API data naar stats object (voor compatibiliteit met bestaande render functies)
+    const stats = {
+        totalCustomers: data.customers.totalCount,
+        totalInvoices: data.invoices.totalCount,
+        paidInvoices: data.invoices.paidCount,
+        partiallyPaidInvoices: 0, // Niet beschikbaar in API
+        pendingInvoices: data.invoices.openCount,
+        overdueInvoices: data.invoices.overdueCount,
+        overdueInvoicesAmount: data.invoices.overdueTotal,
+        invoicesDueSoon: 0, // TODO: kan toegevoegd worden aan API
+        invoicesDueSoonAmount: 0,
+        totalInvoiceAmount: data.invoices.paidTotal + data.invoices.openTotal,
+        paidAmount: data.invoices.paidTotal,
+        pendingAmount: data.invoices.openTotal,
+        totalPayments: 0,
+        totalSubscriptions: data.subscriptions.activeCount,
+        activeSubscriptions: data.subscriptions.activeCount,
+        cancelledSubscriptions: 0,
+        expiringSubscriptions: 0,
+        monthlyRecurringRevenue: data.subscriptions.monthlyRecurringRevenue,
+        annualRecurringRevenue: data.subscriptions.annualRecurringRevenue,
+        averageRevenuePerSubscription: data.subscriptions.averageRevenuePerSubscription,
+        collectionRate: data.invoices.paidTotal > 0 && (data.invoices.paidTotal + data.invoices.openTotal) > 0
+            ? (data.invoices.paidTotal / (data.invoices.paidTotal + data.invoices.openTotal)) * 100
+            : 0,
+        activeSubscriptionRate: 100,
+        overduePressure: data.invoices.openCount > 0
+            ? (data.invoices.overdueCount / data.invoices.openCount) * 100
+            : 0,
+        totalOrders: 0,
+        openOrders: 0,
+        draftOrders: 0,
+        confirmedOrders: 0,
+        invoicedOrders: 0,
+        cancelledOrders: 0,
+        pendingOrderAmount: 0,
+        openSubscriptionTermsCount: data.subscriptions.overdueSubscriptions?.count || 0,
+        subscriptionsWithOpenTerms: [],
+        subscriptionsUpcomingBilling: data.subscriptions.upcomingPayments?.items || [],
+        // Nieuwe stats voor de uitgebreide dashboard functionaliteit
+        expectedRevenue30Days: data.expectedRevenue?.next30Days || 0,
+        expectedRevenue90Days: data.expectedRevenue?.next90Days || 0,
+        yearlyProjection: data.expectedRevenue?.yearlyProjection || 0,
+        netCashflow30Days: data.cashflow?.netExpectedCashflow || 0,
+        averageCustomerValue: data.customerValue?.averageMonthlyValuePerCustomer || 0,
+        lifetimeValue: data.customerValue?.estimatedLifetimeValue || 0,
+        potentialUpsellCustomers: data.customerValue?.potentialUpsellCustomers || 0
+    };
 
     content.innerHTML = `
         <div class="space-y-4 page-transition">
@@ -234,7 +299,499 @@ function renderDashboard(stats, invoices, payments, subscriptions, customers, or
                     <p class="text-xs text-gray-400 uppercase tracking-widest mb-0.5">${formatDate(now.toISOString())}</p>
                     <h2 class="text-xl font-bold text-gray-900 leading-tight">Dashboard</h2>
                 </div>
-                <div class="flex gap-2">
+                <div class="flex flex-wrap gap-2">
+                    <button onclick="showCreateCustomer()" class="btn-sm-success">
+                        <i class="fas fa-user-plus"></i> Nieuwe klant
+                    </button>
+                    <button onclick="switchTab('invoices')" class="btn-sm-invoice">
+                        <i class="fas fa-file-invoice"></i> Verkoopfacturen
+                    </button>
+                    <button onclick="switchTab('purchase-invoices')" class="btn-sm-red">
+                        <i class="fas fa-file-invoice-dollar"></i> Inkoopfacturen
+                    </button>
+                    <button onclick="switchTab('orders')" class="btn-sm-sunset">
+                        <i class="fas fa-shopping-cart"></i> Orders
+                    </button>
+                    <button onclick="switchTab('customers')" class="btn-sm-gold">
+                        <i class="fas fa-users"></i> Klanten
+                    </button>
+                    <button onclick="switchTab('suppliers')" class="btn-sm-wood">
+                        <i class="fas fa-truck"></i> Leveranciers
+                    </button>
+                    <button onclick="switchTab('subscriptions')" class="btn-sm-rose">
+                        <i class="fas fa-sync"></i> Abonnementen
+                    </button>
+                </div>
+            </div>
+
+            <!-- KPI strip met verbeterde metrics -->
+            <div class="kpi-strip">
+                ${createCompactKpiCard('Klanten', data.customers.totalCount, "switchTab('customers')", data.customers.activeCount + ' met abonnement', 'fa-users')}
+                ${createCompactKpiCard('Facturen', data.invoices.totalCount, "switchTab('invoices')", data.invoices.openCount + ' open', 'fa-file-invoice')}
+                ${createCompactKpiCard('Verwachte omzet (30d)', formatCurrency(data.expectedRevenue?.next30Days || 0), "switchTab('subscriptions')", 'Komende maand', 'fa-calendar-check')}
+                ${createCompactKpiCard('Maandelijkse omzet', formatCurrency(data.subscriptions.monthlyRecurringRevenue), "switchTab('subscriptions')", 'Jaarlijks: ' + formatCurrency(data.subscriptions.annualRecurringRevenue), 'fa-chart-line')}
+                ${createCompactKpiCard('Abonnementen', data.subscriptions.activeCount, "switchTab('subscriptions')", 'Ø ' + formatCurrency(data.subscriptions.averageRevenuePerSubscription) + '/maand', 'fa-sync')}
+            </div>
+
+            <!-- Alerts (verbeterd met API data) -->
+            ${renderAlertsFromAPI(data)}
+
+            <!-- Main grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+                <!-- Financieel (verbeterd) -->
+                <div class="card-compact">
+                    <div class="card-compact-header">
+                        <span>Financieel Overzicht</span>
+                        <button onclick="switchTab('invoices')" class="link-action">Bekijk facturen →</button>
+                    </div>
+                    <div class="financial-summary">
+                        <div class="fin-item">
+                            <p class="fin-label">Ontvangen</p>
+                            <p class="fin-value" style="color:#15803d">${formatCurrency(data.invoices.paidTotal)}</p>
+                            <p class="fin-note">${data.invoices.paidCount} volledig betaalde facturen</p>
+                        </div>
+                        <div class="fin-item">
+                            <p class="fin-label">Openstaand</p>
+                            <p class="fin-value" style="color:#b45309">${formatCurrency(data.invoices.openTotal)}</p>
+                            <p class="fin-note">${data.invoices.openCount} openstaande facturen</p>
+                        </div>
+                        <div class="fin-item">
+                            <p class="fin-label">Achterstallig</p>
+                            <p class="fin-value" style="color:#dc2626">${formatCurrency(data.invoices.overdueTotal)}</p>
+                            <p class="fin-note">${data.invoices.overdueCount} achterstallige facturen</p>
+                        </div>
+                        <div class="fin-item">
+                            <p class="fin-label">Verwacht (30 dagen)</p>
+                            <p class="fin-value" style="color:#059669">${formatCurrency(data.expectedRevenue?.next30Days || 0)}</p>
+                            <p class="fin-note">Verwachte inkomsten komende maand</p>
+                        </div>
+                        <div class="fin-item">
+                            <p class="fin-label">Maandelijkse omzet</p>
+                            <p class="fin-value" style="color:#1d4ed8">${formatCurrency(data.subscriptions.monthlyRecurringRevenue)}</p>
+                            <p class="fin-note">${data.subscriptions.activeCount} actieve abonnementen</p>
+                        </div>
+                        <div class="fin-item">
+                            <p class="fin-label">Jaarlijkse omzet</p>
+                            <p class="fin-value" style="color:#7c3aed">${formatCurrency(data.subscriptions.annualRecurringRevenue)}</p>
+                            <p class="fin-note">Projectie op jaarbasis</p>
+                        </div>
+                    </div>
+                    <div class="mt-4 space-y-2">
+                        ${createMeterRow('Betaalde facturen', stats.collectionRate, 'success')}
+                        ${createMeterRow('Achterstallige facturen', stats.overduePressure, 'warning')}
+                    </div>
+                </div>
+
+                <!-- Cashflow & Verwachtingen -->
+                <div class="card-compact">
+                    <div class="card-compact-header">
+                        <span>Cashflow & Verwachtingen</span>
+                        <button onclick="switchTab('subscriptions')" class="link-action">Bekijk abonnementen →</button>
+                    </div>
+                    <div class="financial-summary">
+                        <div class="fin-item">
+                            <p class="fin-label">Netto Cashflow (30d)</p>
+                            <p class="fin-value" style="color:${(data.cashflow?.netExpectedCashflow || 0) >= 0 ? '#15803d' : '#dc2626'}">${formatCurrency(data.cashflow?.netExpectedCashflow || 0)}</p>
+                            <p class="fin-note">Inkomend minus achterstallig</p>
+                        </div>
+                        <div class="fin-item">
+                            <p class="fin-label">Inkomend (30d)</p>
+                            <p class="fin-value" style="color:#059669">${formatCurrency(data.cashflow?.incomingNext30Days || 0)}</p>
+                            <p class="fin-note">Verwachte betalingen</p>
+                        </div>
+                        <div class="fin-item">
+                            <p class="fin-label">Verwacht (90d)</p>
+                            <p class="fin-value" style="color:#1d4ed8">${formatCurrency(data.expectedRevenue?.next90Days || 0)}</p>
+                            <p class="fin-note">Komende 3 maanden</p>
+                        </div>
+                        <div class="fin-item">
+                            <p class="fin-label">Jaarprojectie</p>
+                            <p class="fin-value" style="color:#7c3aed">${formatCurrency(data.expectedRevenue?.yearlyProjection || 0)}</p>
+                            <p class="fin-note">Geschatte jaaromzet</p>
+                        </div>
+                        <div class="fin-item">
+                            <p class="fin-label">Ø Klantwaarde</p>
+                            <p class="fin-value" style="color:#ea580c">${formatCurrency(data.customerValue?.averageMonthlyValuePerCustomer || 0)}</p>
+                            <p class="fin-note">Per klant per maand</p>
+                        </div>
+                        <div class="fin-item">
+                            <p class="fin-label">Lifetime Value</p>
+                            <p class="fin-value" style="color:#c2410c">${formatCurrency(data.customerValue?.estimatedLifetimeValue || 0)}</p>
+                            <p class="fin-note">Geschatte waarde per klant</p>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <p class="text-xs font-semibold text-gray-500 mb-2">ACTIEPUNTEN</p>
+                        <div class="space-y-1 text-xs">
+                            ${(data.cashflow?.overdueImpact || 0) > 0 ? `
+                                <div class="flex items-center gap-2 text-red-600">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                    <span>Achterstallige betalingen: ${formatCurrency(data.cashflow.overdueImpact)}</span>
+                                </div>
+                            ` : ''}
+                            ${(data.customerValue?.potentialUpsellCustomers || 0) > 0 ? `
+                                <div class="flex items-center gap-2 text-blue-600">
+                                    <i class="fas fa-arrow-up"></i>
+                                    <span>${data.customerValue.potentialUpsellCustomers} klanten zonder abonnement</span>
+                                </div>
+                            ` : ''}
+                            ${(data.subscriptions.upcomingPayments?.count || 0) > 0 ? `
+                                <div class="flex items-center gap-2 text-green-600">
+                                    <i class="fas fa-calendar-check"></i>
+                                    <span>${data.subscriptions.upcomingPayments.count} betalingen komende week</span>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Aanvullende KPI sectie -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
+                <!-- Omzet Analyse -->
+                <div class="card-compact">
+                    <div class="card-compact-header">
+                        <span>Omzet Analyse</span>
+                        <i class="fas fa-chart-line text-gray-400"></i>
+                    </div>
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-600">Huidige MRR</span>
+                            <span class="font-bold text-green-600">${formatCurrency(data.subscriptions.monthlyRecurringRevenue)}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-600">Verwacht deze maand</span>
+                            <span class="font-bold text-blue-600">${formatCurrency(data.expectedRevenue?.next30Days || 0)}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-600">Groei potentieel</span>
+                            <span class="font-bold text-orange-600">${formatCurrency((data.customerValue?.potentialUpsellCustomers || 0) * (data.customerValue?.averageMonthlyValuePerCustomer || 0))}</span>
+                        </div>
+                        <div class="pt-2 border-t">
+                            <div class="text-xs text-gray-500 mb-1">MRR groei dit jaar</div>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div class="bg-gradient-to-r from-green-400 to-green-600 h-2 rounded-full" style="width: 65%"></div>
+                            </div>
+                            <div class="text-xs text-gray-500 mt-1">65% van jaardoel</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Klant Inzichten -->
+                <div class="card-compact">
+                    <div class="card-compact-header">
+                        <span>Klant Inzichten</span>
+                        <i class="fas fa-users text-gray-400"></i>
+                    </div>
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-600">Totaal klanten</span>
+                            <span class="font-bold">${data.customers.totalCount}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-600">Met abonnement</span>
+                            <span class="font-bold text-green-600">${data.customers.activeCount}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-600">Zonder abonnement</span>
+                            <span class="font-bold text-orange-600">${data.customers.withoutSubscription}</span>
+                        </div>
+                        <div class="pt-2 border-t">
+                            <div class="text-xs text-gray-500 mb-1">Conversie ratio</div>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div class="bg-gradient-to-r from-blue-400 to-blue-600 h-2 rounded-full" 
+                                     style="width: ${data.customers.totalCount > 0 ? (data.customers.activeCount / data.customers.totalCount * 100) : 0}%"></div>
+                            </div>
+                            <div class="text-xs text-gray-500 mt-1">${data.customers.totalCount > 0 ? Math.round(data.customers.activeCount / data.customers.totalCount * 100) : 0}% heeft abonnement</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Risico Overzicht -->
+                <div class="card-compact">
+                    <div class="card-compact-header">
+                        <span>Risico Overzicht</span>
+                        <i class="fas fa-exclamation-triangle text-gray-400"></i>
+                    </div>
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-600">Achterstallig bedrag</span>
+                            <span class="font-bold text-red-600">${formatCurrency(data.invoices.overdueTotal)}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-600">Risico percentage</span>
+                            <span class="font-bold ${stats.overduePressure > 20 ? 'text-red-600' : stats.overduePressure > 10 ? 'text-orange-600' : 'text-green-600'}">${Math.round(stats.overduePressure)}%</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-600">Incasso effectiviteit</span>
+                            <span class="font-bold ${stats.collectionRate > 90 ? 'text-green-600' : stats.collectionRate > 70 ? 'text-orange-600' : 'text-red-600'}">${Math.round(stats.collectionRate)}%</span>
+                        </div>
+                        <div class="pt-2 border-t">
+                            ${stats.overduePressure > 15 ? `
+                                <div class="text-xs text-red-600 font-medium">⚠️ Hoge betalingsachterstand</div>
+                            ` : stats.overduePressure > 5 ? `
+                                <div class="text-xs text-orange-600">⚡ Verhoogde betalingsachterstand</div>
+                            ` : `
+                                <div class="text-xs text-green-600">✅ Gezonde betalingsmoraal</div>
+                            `}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bestaande abonnementen sectie -->
+                <div class="card-compact">
+                    <div class="card-compact-header">
+                        <span>Abonnementen per Plan</span>
+                        <button onclick="switchTab('subscriptions')" class="link-action">Bekijk abonnementen →</button>
+                    </div>
+                    ${renderSubscriptionByPlanBreakdown(data.subscriptions.byPlan)}
+                    <div class="mt-4">
+                        <p class="text-xs font-semibold text-gray-500 mb-2">ACTIEPUNTEN</p>
+                        ${renderSubscriptionActions(data.subscriptions)}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Klanten inzicht -->
+            <div class="card-compact">
+                <div class="card-compact-header">
+                    <span>Klanten Overzicht</span>
+                    <button onclick="switchTab('customers')" class="link-action">Bekijk klanten →</button>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="text-center p-4 bg-green-50 rounded-lg">
+                        <p class="text-3xl font-bold text-green-700">${data.customers.activeCount}</p>
+                        <p class="text-sm text-gray-600 mt-1">Actieve klanten</p>
+                        <p class="text-xs text-gray-400 mt-0.5">Met actief abonnement</p>
+                    </div>
+                    <div class="text-center p-4 bg-gray-50 rounded-lg">
+                        <p class="text-3xl font-bold text-gray-700">${data.customers.withoutSubscription}</p>
+                        <p class="text-sm text-gray-600 mt-1">Zonder abonnement</p>
+                        <p class="text-xs text-gray-400 mt-0.5">Potentiële klanten</p>
+                    </div>
+                    <div class="text-center p-4 bg-blue-50 rounded-lg">
+                        <p class="text-3xl font-bold text-blue-700">${data.customers.totalCount}</p>
+                        <p class="text-sm text-gray-600 mt-1">Totaal klanten</p>
+                        <p class="text-xs text-gray-400 mt-0.5">In het systeem</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function renderAlertsFromAPI(data) {
+    const alerts = [];
+
+    if (data.invoices.overdueCount > 0) {
+        alerts.push({
+            type: 'error',
+            icon: 'exclamation-triangle',
+            message: `${data.invoices.overdueCount} achterstallige factuur${data.invoices.overdueCount > 1 ? 'en' : ''} (${formatCurrency(data.invoices.overdueTotal)})`,
+            action: 'Bekijk →',
+            actionFn: "switchTab('invoices')"
+        });
+    }
+
+    if (data.subscriptions.overdueSubscriptions?.count > 0) {
+        const count = data.subscriptions.overdueSubscriptions.count;
+        const terms = data.subscriptions.overdueSubscriptions.totalTerms || count;
+        const termsText = terms !== count ? ` (${terms} termijn${terms > 1 ? 'en' : ''})` : '';
+        alerts.push({
+            type: 'warning',
+            icon: 'file-invoice-dollar',
+            message: `${count} abonnement${count > 1 ? 'en' : ''}${termsText} nog te factureren (${formatCurrency(data.subscriptions.overdueSubscriptions.totalAmount)})`,
+            action: 'Bekijk →',
+            actionFn: "switchTab('subscriptions')"
+        });
+    }
+
+    if (data.subscriptions.upcomingPayments?.count > 0) {
+        alerts.push({
+            type: 'info',
+            icon: 'calendar-check',
+            message: `${data.subscriptions.upcomingPayments.count} abonnement${data.subscriptions.upcomingPayments.count > 1 ? 'en' : ''} binnenkort te factureren (${formatCurrency(data.subscriptions.upcomingPayments.totalAmount)})`,
+            action: 'Bekijk →',
+            actionFn: "switchTab('subscriptions')"
+        });
+    }
+
+    if (data.customers.withoutSubscription > 5) {
+        alerts.push({
+            type: 'info',
+            icon: 'user-plus',
+            message: `${data.customers.withoutSubscription} klanten zonder abonnement – verkoopkans?`,
+            action: 'Bekijk →',
+            actionFn: "switchTab('customers')"
+        });
+    }
+
+    if (alerts.length === 0) {
+        return `
+            <div class="alert-compact success">
+                <i class="fas fa-check-circle"></i>
+                <span>Geen actiepunten – alles loopt goed! 🎋</span>
+            </div>
+        `;
+    }
+
+    return `
+        <div class="space-y-2">
+            ${alerts.map(alert => `
+                <div class="alert-compact ${alert.type}">
+                    <i class="fas fa-${alert.icon}"></i>
+                    <span>${alert.message}</span>
+                    <button onclick="${alert.actionFn}" class="alert-action">${alert.action}</button>
+                </div>
+            `).join('')}
+        </div>
+    `;
+}
+
+function renderSubscriptionBreakdown(byFrequency) {
+    if (!byFrequency || byFrequency.length === 0) {
+        return '<p class="text-sm text-gray-400 text-center py-4">Geen abonnementen</p>';
+    }
+
+    const frequencyLabels = {
+        'monthly': 'Maandelijks',
+        'quarterly': 'Per kwartaal',
+        'halfyearly': 'Per half jaar',
+        'yearly': 'Jaarlijks',
+        'unknown': 'Onbekend'
+    };
+
+    return `
+        <div class="space-y-3">
+            ${byFrequency.map(freq => `
+                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div>
+                        <p class="text-sm font-semibold text-gray-800">${frequencyLabels[freq.frequency] || freq.frequency}</p>
+                        <p class="text-xs text-gray-500">${freq.count} abonnement${freq.count !== 1 ? 'en' : ''}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-sm font-bold text-green-700">${formatCurrency(freq.monthlyRevenue)}</p>
+                        <p class="text-xs text-gray-500">Per maand</p>
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    `;
+}
+
+function renderSubscriptionByPlanBreakdown(byPlan) {
+    if (!byPlan || byPlan.length === 0) {
+        return '<p class="text-sm text-gray-400 text-center py-4">Geen abonnementen</p>';
+    }
+
+    const frequencyLabels = {
+        'monthly': 'Maandelijks',
+        'quarterly': 'Per kwartaal',
+        'halfyearly': 'Per half jaar',
+        'yearly': 'Jaarlijks',
+        'unknown': 'Onbekend'
+    };
+
+    // Bereken totale omzet voor percentages in de visuele balk
+    const totalRevenue = byPlan.reduce((sum, plan) => sum + plan.monthlyRevenue, 0);
+    const totalCount = byPlan.reduce((sum, plan) => sum + plan.count, 0);
+
+    return `
+        <div class="space-y-3">
+            ${byPlan.map(plan => {
+                const revenuePercentage = totalRevenue > 0 ? (plan.monthlyRevenue / totalRevenue * 100) : 0;
+                return `
+                    <div class="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                        <div class="flex items-start justify-between mb-2">
+                            <div class="flex-1">
+                                <p class="text-sm font-semibold text-gray-800">${plan.planName}</p>
+                                <p class="text-xs text-gray-500 mt-0.5">
+                                    ${plan.count} abonnement${plan.count !== 1 ? 'en' : ''} (${plan.percentage}%)
+                                    <span class="mx-1">•</span>
+                                    ${frequencyLabels[plan.mostCommonFrequency] || plan.mostCommonFrequency}
+                                </p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-sm font-bold text-green-700">${formatCurrency(plan.monthlyRevenue)}<span class="text-xs text-gray-500 font-normal">/mnd</span></p>
+                                <p class="text-xs text-gray-500">Ø ${formatCurrency(plan.averageMonthlyPrice)}</p>
+                            </div>
+                        </div>
+                        <!-- Revenue bar -->
+                        <div class="w-full bg-gray-200 rounded-full h-1.5">
+                            <div class="bg-gradient-to-r from-green-500 to-green-600 h-1.5 rounded-full transition-all" style="width: ${revenuePercentage}%"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('')}
+
+            <!-- Totalen -->
+            ${byPlan.length > 1 ? `
+                <div class="pt-3 border-t border-gray-200">
+                    <div class="flex items-center justify-between px-3">
+                        <div>
+                            <p class="text-xs font-semibold text-gray-500 uppercase">Totaal</p>
+                            <p class="text-sm text-gray-700">${totalCount} abonnement${totalCount !== 1 ? 'en' : ''} over ${byPlan.length} plan${byPlan.length > 1 ? 'nen' : ''}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-sm font-bold text-gray-800">${formatCurrency(totalRevenue)}<span class="text-xs text-gray-500 font-normal">/mnd</span></p>
+                            <p class="text-xs text-gray-500">${formatCurrency(totalRevenue * 12)}/jaar</p>
+                        </div>
+                    </div>
+                </div>
+            ` : ''}
+        </div>
+    `;
+}
+
+function renderSubscriptionActions(subscriptions) {
+    const items = [];
+
+    if (subscriptions.overdueSubscriptions?.count > 0) {
+        const count = subscriptions.overdueSubscriptions.count;
+        const terms = subscriptions.overdueSubscriptions.totalTerms || count;
+        const label = terms !== count 
+            ? `${count} abonnement${count > 1 ? 'en' : ''} (${terms} termijn${terms > 1 ? 'en' : ''}) nog te factureren`
+            : `${count} nog te factureren`;
+        items.push(`
+            <div class="flex items-center justify-between p-2 bg-red-50 rounded border-l-4 border-red-500">
+                <span class="text-sm text-gray-700"><i class="fas fa-exclamation-circle text-red-500 mr-2"></i>${label}</span>
+                <button onclick="switchTab('subscriptions')" class="text-xs px-2 py-1 bg-red-100 text-red-700 rounded font-medium">Bekijk →</button>
+            </div>
+        `);
+    }
+
+    if (subscriptions.upcomingPayments?.count > 0) {
+        items.push(`
+            <div class="flex items-center justify-between p-2 bg-blue-50 rounded border-l-4 border-blue-500">
+                <span class="text-sm text-gray-700"><i class="fas fa-calendar-alt text-blue-500 mr-2"></i>${subscriptions.upcomingPayments.count} binnenkort</span>
+                <button onclick="switchTab('subscriptions')" class="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded font-medium">Bekijk →</button>
+            </div>
+        `);
+    }
+
+    if (items.length === 0) {
+        return '<p class="text-xs text-gray-400 text-center py-2">Geen acties nodig</p>';
+    }
+
+    return `<div class="space-y-2">${items.join('')}</div>`;
+}
+
+function renderDashboard(stats, invoices, payments, subscriptions, customers, orders) {
+    const content = document.getElementById('content');
+    const now = new Date();
+
+    content.innerHTML = `
+        <div class="space-y-4 page-transition">
+
+            <!-- Compact header -->
+            <div class="flex items-center justify-between flex-wrap gap-2">
+                <div>
+                    <p class="text-xs text-gray-400 uppercase tracking-widest mb-0.5">${formatDate(now.toISOString())}</p>
+                    <h2 class="text-xl font-bold text-gray-900 leading-tight">Dashboard</h2>
+                </div>
+                <div class="flex flex-wrap gap-2">
                     <button onclick="switchTab('invoices')" class="btn-sm-invoice">
                         <i class="fas fa-file-invoice"></i> Facturen
                     </button>
@@ -252,10 +809,10 @@ function renderDashboard(stats, invoices, payments, subscriptions, customers, or
 
             <!-- KPI strip -->
             <div class="kpi-strip">
-                ${createCompactKpiCard('Klanten', stats.totalCustomers, 'switchTab("customers")', '', 'fa-users')}
-                ${createCompactKpiCard('Facturen', stats.totalInvoices, 'switchTab("invoices")', `${stats.pendingInvoices + stats.overdueInvoices} open`, 'fa-file-invoice')}
-                ${createCompactKpiCard('Orders', stats.totalOrders, 'switchTab("orders")', `${stats.confirmedOrders} bevestigd`, 'fa-shopping-cart')}
-                ${createCompactKpiCard('Abonnementen', stats.totalSubscriptions, 'switchTab("subscriptions")', `${stats.activeSubscriptions} actief`, 'fa-sync')}
+                ${createCompactKpiCard('Klanten', stats.totalCustomers, "switchTab('customers')", '', 'fa-users')}
+                ${createCompactKpiCard('Facturen', stats.totalInvoices, "switchTab('invoices')", `${stats.pendingInvoices + stats.overdueInvoices} open`, 'fa-file-invoice')}
+                ${createCompactKpiCard('Orders', stats.totalOrders, "switchTab('orders')", `${stats.openOrders} open`, 'fa-shopping-cart')}
+                ${createCompactKpiCard('Abonnementen', stats.totalSubscriptions, "switchTab('subscriptions')", `${stats.activeSubscriptions} actief`, 'fa-sync')}
             </div>
 
             <!-- Alerts -->
@@ -275,64 +832,34 @@ function renderDashboard(stats, invoices, payments, subscriptions, customers, or
                     </div>
                     <div class="financial-summary">
                         <div class="fin-item">
-                            <p class="fin-label">Betaald</p>
+                            <p class="fin-label">Ontvangen</p>
                             <p class="fin-value" style="color:#15803d">${formatCurrency(stats.paidAmount)}</p>
-                            <p class="fin-note">${stats.paidInvoices} facturen</p>
+                            <p class="fin-note">${stats.paidInvoices} volledig betaalde facturen</p>
                         </div>
                         <div class="fin-item">
-                            <p class="fin-label">Openstaand</p>
+                            <p class="fin-label">Nog te ontvangen</p>
                             <p class="fin-value" style="color:#b45309">${formatCurrency(stats.pendingAmount)}</p>
-                            <p class="fin-note">${stats.pendingInvoices + stats.overdueInvoices} facturen</p>
+                            <p class="fin-note">${stats.pendingInvoices + stats.overdueInvoices} openstaande facturen</p>
                         </div>
                         <div class="fin-item">
-                            <p class="fin-label">MRR</p>
+                            <p class="fin-label">Vaste maandomzet</p>
                             <p class="fin-value" style="color:#1d4ed8">${formatCurrency(stats.monthlyRecurringRevenue)}</p>
-                            <p class="fin-note">${stats.activeSubscriptions} actief</p>
+                            <p class="fin-note">${stats.activeSubscriptions} actieve abonnementen</p>
                         </div>
                     </div>
                     <div class="mt-4 space-y-2">
-                        ${createMeterRow('Inningsratio', stats.collectionRate, 'success')}
+                        ${createMeterRow('Betaalde facturen', stats.collectionRate, 'success')}
                         ${createMeterRow('Actieve abonnementen', stats.activeSubscriptionRate, 'info')}
-                        ${createMeterRow('Achterstanddruk', stats.overduePressure, 'warning')}
+                        ${createMeterRow('Achterstallige facturen', stats.overduePressure, 'warning')}
                     </div>
                 </div>
 
-                <!-- Actiepunten + Pipeline -->
+                <!-- Actiepunten -->
                 <div class="card-compact">
                     <div class="card-compact-header">
                         <span>Actiepunten</span>
-                        <button onclick="switchTab('orders')" class="link-action">Orders →</button>
                     </div>
-                    <div class="focus-list">
-                        <div class="focus-row">
-                            <div>
-                                <p class="focus-label">Achterstallig risico</p>
-                                <p class="focus-note">${stats.overdueInvoices} facturen met prioriteit</p>
-                            </div>
-                            <p class="focus-value">${formatCurrency(overdueAmount)}</p>
-                        </div>
-                        <div class="focus-row">
-                            <div>
-                                <p class="focus-label">Open facturen</p>
-                                <p class="focus-note">Plan opvolging voor snellere inning</p>
-                            </div>
-                            <p class="focus-value">${stats.pendingInvoices + stats.overdueInvoices}</p>
-                        </div>
-                        <div class="focus-row">
-                            <div>
-                                <p class="focus-label">Te factureren orders</p>
-                                <p class="focus-note">${stats.confirmedOrders} bevestigde order${stats.confirmedOrders !== 1 ? 's' : ''}</p>
-                            </div>
-                            <p class="focus-value">${formatCurrency(stats.pendingOrderAmount)}</p>
-                        </div>
-                        <div class="focus-row">
-                            <div>
-                                <p class="focus-label">Verloopt binnen 30 dagen</p>
-                                <p class="focus-note">Proactieve verlenging nodig</p>
-                            </div>
-                            <p class="focus-value">${stats.expiringSubscriptions}</p>
-                        </div>
-                    </div>
+                    ${renderActionItems(stats)}
                     <div class="pipeline-grid mt-4">
                         <div>
                             <p class="pipeline-section-label">Facturen</p>
@@ -363,11 +890,14 @@ function renderDashboard(stats, invoices, payments, subscriptions, customers, or
 }
 
 function createCompactKpiCard(title, value, onClickAction, subtitle = '', icon = '') {
+    const iconHtml = icon ? '<i class="fas ' + icon + ' kpi-icon"></i> ' : '';
+    const subtitleHtml = subtitle ? '<p class="kpi-sub">' + subtitle + '</p>' : '';
+
     return `
         <button class="kpi-card-compact" onclick="${onClickAction}">
-            <p class="kpi-label">${icon ? `<i class="fas ${icon} kpi-icon"></i> ` : ''}${title}</p>
+            <p class="kpi-label">${title}${iconHtml}</p>
             <p class="kpi-number">${value}</p>
-            ${subtitle ? `<p class="kpi-sub">${subtitle}</p>` : ''}
+            ${subtitleHtml}
         </button>
     `;
 }
@@ -410,29 +940,34 @@ function renderAlerts(stats) {
             icon: 'exclamation-triangle',
             message: `${stats.overdueInvoices} achterstallige factuur${stats.overdueInvoices > 1 ? 'en' : ''} – directe opvolging vereist`,
             action: 'Bekijk →',
-            actionFn: 'switchTab("invoices")'
+            actionFn: "switchTab('invoices')"
         });
     }
 
     if (stats.subscriptionsWithOpenTerms?.length > 0) {
         const pastOpenCount = stats.subscriptionsWithOpenTerms.filter(x => x.pastOpen > 0).length;
+        const pastOpenTermsCount = stats.subscriptionsWithOpenTerms.filter(x => x.pastOpen > 0).reduce((sum, x) => sum + x.pastOpen, 0);
         const currentOnlyOpenCount = stats.subscriptionsWithOpenTerms.filter(x => x.pastOpen === 0 && x.currentOpen > 0).length;
+        const currentOnlyTermsCount = stats.subscriptionsWithOpenTerms.filter(x => x.pastOpen === 0 && x.currentOpen > 0).reduce((sum, x) => sum + x.currentOpen, 0);
+
         if (pastOpenCount > 0) {
+            const termsText = pastOpenTermsCount !== pastOpenCount ? ` (${pastOpenTermsCount} termijn${pastOpenTermsCount > 1 ? 'en' : ''})` : '';
             alerts.push({
                 type: 'error',
                 icon: 'file-invoice-dollar',
-                message: `${pastOpenCount} abonnement${pastOpenCount > 1 ? 'en hebben' : ' heeft'} niet-gefactureerde termijnen`,
+                message: `${pastOpenCount} abonnement${pastOpenCount > 1 ? 'en hebben' : ' heeft'}${termsText} niet-gefactureerde termijnen`,
                 action: 'Bekijk →',
-                actionFn: 'switchTab("subscriptions")'
+                actionFn: "switchTab('subscriptions')"
             });
         }
         if (currentOnlyOpenCount > 0) {
+            const termsText = currentOnlyTermsCount !== currentOnlyOpenCount ? ` (${currentOnlyTermsCount} termijn${currentOnlyTermsCount > 1 ? 'en' : ''})` : '';
             alerts.push({
                 type: 'warning',
                 icon: 'file-invoice-dollar',
-                message: `${currentOnlyOpenCount} abonnement${currentOnlyOpenCount > 1 ? 'en hebben' : ' heeft'} een lopende termijn nog niet gefactureerd`,
+                message: `${currentOnlyOpenCount} abonnement${currentOnlyOpenCount > 1 ? 'en hebben' : ' heeft'}${termsText} een lopende termijn nog niet gefactureerd`,
                 action: 'Bekijk →',
-                actionFn: 'switchTab("subscriptions")'
+                actionFn: "switchTab('subscriptions')"
             });
         }
     }
@@ -443,7 +978,7 @@ function renderAlerts(stats) {
             icon: 'calendar-check',
             message: `${stats.subscriptionsUpcomingBilling.length} abonnement${stats.subscriptionsUpcomingBilling.length > 1 ? 'en' : ''} te factureren binnen 14 dagen`,
             action: 'Bekijk →',
-            actionFn: 'switchTab("subscriptions")'
+            actionFn: "switchTab('subscriptions')"
         });
     }
 
@@ -453,7 +988,7 @@ function renderAlerts(stats) {
             icon: 'clock',
             message: `${stats.expiringSubscriptions} abonnement${stats.expiringSubscriptions > 1 ? 'en verlopen' : ' verloopt'} binnen 30 dagen`,
             action: 'Bekijk →',
-            actionFn: 'switchTab("subscriptions")'
+            actionFn: "switchTab('subscriptions')"
         });
     }
 
@@ -463,7 +998,7 @@ function renderAlerts(stats) {
             icon: 'info-circle',
             message: `${stats.pendingInvoices} openstaande facturen – overweeg herinneringen te sturen`,
             action: 'Bekijk →',
-            actionFn: 'switchTab("invoices")'
+            actionFn: "switchTab('invoices')"
         });
     }
 
@@ -485,6 +1020,104 @@ function renderAlerts(stats) {
                     <button onclick="${alert.actionFn}" class="alert-action">${alert.action}</button>
                 </div>
             `).join('')}
+        </div>
+    `;
+}
+
+function renderActionItems(stats) {
+    const urgencyConfig = {
+        critical: { border: 'border-l-red-500',    bg: 'bg-red-50',    icon: 'text-red-500',    badge: 'bg-red-100 text-red-700' },
+        high:     { border: 'border-l-orange-400', bg: 'bg-orange-50', icon: 'text-orange-500', badge: 'bg-orange-100 text-orange-700' },
+        medium:   { border: 'border-l-yellow-400', bg: 'bg-yellow-50', icon: 'text-yellow-600', badge: 'bg-yellow-100 text-yellow-700' },
+        low:      { border: 'border-l-blue-400',   bg: 'bg-blue-50',   icon: 'text-blue-500',  badge: 'bg-blue-100 text-blue-700' }
+    };
+
+    const items = [];
+
+    if (stats.overdueInvoices > 0) {
+        items.push({
+            urgency: 'critical', icon: 'exclamation-triangle',
+            label: `${stats.overdueInvoices} achterstallige factuur${stats.overdueInvoices > 1 ? 'en' : ''}`,
+            detail: `${formatCurrency(stats.overdueInvoicesAmount)} – directe opvolging vereist`,
+            actionLabel: 'Facturen', fn: 'switchTab("invoices")'
+        });
+    }
+
+    if (stats.invoicesDueSoon > 0) {
+        items.push({
+            urgency: 'high', icon: 'calendar-times',
+            label: `${stats.invoicesDueSoon} factuur${stats.invoicesDueSoon > 1 ? 'en' : ''} vervalt binnen 7 dagen`,
+            detail: `${formatCurrency(stats.invoicesDueSoonAmount)} – stuur een herinnering`,
+            actionLabel: 'Facturen', fn: 'switchTab("invoices")'
+        });
+    }
+
+    if (stats.openSubscriptionTermsCount > 0) {
+        const subscriptionCount = stats.openSubscriptionsCount || 1;
+        const termsCount = stats.openSubscriptionTermsCount;
+        const label = subscriptionCount > 1 || termsCount !== subscriptionCount
+            ? `${subscriptionCount} abonnement${subscriptionCount > 1 ? 'en' : ''} (${termsCount} termijn${termsCount > 1 ? 'en' : ''}) niet gefactureerd`
+            : `${termsCount} abonnement termijn${termsCount > 1 ? 'en' : ''} niet gefactureerd`;
+        items.push({
+            urgency: 'high', icon: 'file-invoice-dollar',
+            label: label,
+            detail: 'Maak de ontbrekende facturen aan',
+            actionLabel: 'Abonnementen', fn: 'switchTab("subscriptions")'
+        });
+    }
+
+    if (stats.draftOrders > 0) {
+        items.push({
+            urgency: 'medium', icon: 'pencil-alt',
+            label: `${stats.draftOrders} concept order${stats.draftOrders > 1 ? 's' : ''} wacht op bevestiging`,
+            detail: 'Bevestig of verwijder de openstaande concepten',
+            actionLabel: 'Orders', fn: 'switchTab("orders")'
+        });
+    }
+
+    if (stats.confirmedOrders > 0) {
+        items.push({
+            urgency: 'medium', icon: 'file-invoice',
+            label: `${stats.confirmedOrders} order${stats.confirmedOrders > 1 ? 's' : ''} klaar om te factureren`,
+            detail: `${formatCurrency(stats.pendingOrderAmount)} klaar om in rekening te brengen`,
+            actionLabel: 'Orders', fn: 'switchTab("orders")'
+        });
+    }
+
+    if (stats.expiringSubscriptions > 0) {
+        items.push({
+            urgency: 'low', icon: 'clock',
+            label: `${stats.expiringSubscriptions} abonnement${stats.expiringSubscriptions > 1 ? 'en verlopen' : ' verloopt'} binnen 30 dagen`,
+            detail: 'Neem contact op voor verlenging',
+            actionLabel: 'Abonnementen', fn: 'switchTab("subscriptions")'
+        });
+    }
+
+    if (items.length === 0) {
+        return `
+            <div class="flex flex-col items-center justify-center py-6 text-center">
+                <i class="fas fa-check-circle text-green-500 text-2xl mb-2"></i>
+                <p class="text-sm font-semibold text-green-700">Alles afgehandeld</p>
+                <p class="text-xs text-gray-400 mt-1">Geen openstaande actiepunten</p>
+            </div>
+        `;
+    }
+
+    return `
+        <div class="space-y-2">
+            ${items.map(item => {
+                const cfg = urgencyConfig[item.urgency];
+                return `
+                    <div class="flex items-center gap-3 p-3 rounded border-l-4 ${cfg.border} ${cfg.bg} cursor-pointer hover:opacity-90 transition-opacity" onclick="${item.fn}">
+                        <i class="fas fa-${item.icon} ${cfg.icon} text-base shrink-0"></i>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-semibold text-gray-800 leading-tight">${item.label}</p>
+                            <p class="text-xs text-gray-500 mt-0.5">${item.detail}</p>
+                        </div>
+                        <button onclick="event.stopPropagation(); ${item.fn}" class="shrink-0 text-xs px-2 py-1 rounded ${cfg.badge} font-medium whitespace-nowrap">${item.actionLabel} →</button>
+                    </div>
+                `;
+            }).join('')}
         </div>
     `;
 }
@@ -675,24 +1308,27 @@ function renderSubscriptionBillingPanel(stats, customers) {
     `;
     }).join('');
 
-    const upcomingRows = upcomingItems.slice(0, 5).map(({ sub, daysUntil }) => `
+    const upcomingRows = upcomingItems.slice(0, 5).map(({ sub, daysUntil }) => {
+        const daysText = daysUntil === 0 ? 'Vandaag' : 'Nog ' + daysUntil + ' dag' + (daysUntil !== 1 ? 'en' : '');
+        return `
         <div class="recent-list-row">
             <div class="min-w-0 flex-1">
                 <button onclick="switchTab('subscriptions'); setTimeout(() => showGenerateInvoiceFromSubscription('${sub.id}'), 300);" class="recent-list-label truncate block text-left bg-transparent border-none p-0 cursor-pointer hover:underline">${sub.subscriptionNumber || sub.id}</button>
                 <p class="recent-list-sub truncate">${subName(sub)}</p>
             </div>
             <div class="text-right ml-3 shrink-0">
-                <p class="recent-list-amount" style="color:#d97706">${daysUntil === 0 ? 'Vandaag' : `Nog ${daysUntil} dag${daysUntil !== 1 ? 'en' : ''}`}</p>
+                <p class="recent-list-amount" style="color:#d97706">${daysText}</p>
                 <p class="recent-list-meta">Volgende factuurdatum</p>
             </div>
         </div>
-    `).join('');
+    `;
+    }).join('');
 
     return `
         <div class="card-compact">
             <div class="card-compact-header">
                 <span><i class="fas fa-exclamation-circle" style="color:#dc2626"></i> Abonnement facturatie</span>
-                <button onclick="switchTab('subscriptions')" class="link-action">Beheer abonnementen →</button>
+                <button onclick="switchTab('subscriptions')" class="link-action">Abonnementen →</button>
             </div>
             ${openItems.length > 0 ? `
                 <p class="text-xs font-semibold uppercase tracking-widest mb-2 mt-1" style="color:#dc2626">Openstaande termijnen</p>

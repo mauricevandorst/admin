@@ -1,4 +1,14 @@
 // Invoices management
+
+let _invoicesCache = [];
+let _invoicesCustomersCache = [];
+let _invoiceSortCol = 'invoiceNumber';
+let _invoiceSortDir = -1;
+let _invoiceSearch = '';
+let _invoiceSearchFocused = false;
+let _invoicePages = { unpaid: 1, paid: 1, cancelled: 1 };
+const _invoicePageSize = 25;
+
 function buildInvoiceTableRows(invoices, customers) {
     let html = '';
     invoices.forEach(invoice => {
@@ -16,15 +26,17 @@ function buildInvoiceTableRows(invoices, customers) {
 
         const statusConfig = {
             paid: { class: 'bg-green-100 text-green-800', label: 'Betaald', icon: 'check-circle' },
-            partially_paid: { class: 'bg-blue-100 text-blue-800', label: 'Gedeeltelijk', icon: 'clock' },
-            pending: { class: 'bg-yellow-100 text-yellow-800', label: 'Openstaand', icon: 'clock' },
-            unpaid: { class: 'bg-yellow-100 text-yellow-800', label: 'Openstaand', icon: 'clock' },
-            overdue: { class: 'bg-red-100 text-red-800', label: 'Achterstallig', icon: 'exclamation-triangle' }
+            partially_paid: { class: 'bg-purple-100 text-purple-800', label: 'Gedeeltelijk', icon: 'clock' },
+            pending: { class: 'bg-purple-100 text-purple-800', label: 'Openstaand', icon: 'clock' },
+            unpaid: { class: 'bg-purple-100 text-purple-800', label: 'Openstaand', icon: 'clock' },
+            overdue: { class: 'bg-red-100 text-red-800', label: 'Achterstallig', icon: 'exclamation-triangle' },
+            cancelled: { class: 'bg-gray-100 text-gray-600', label: 'Geannuleerd', icon: 'ban' }
         };
         const status = statusConfig[actualStatus] || statusConfig.pending;
 
         const customer = customers?.find(c => c.customerId === invoice.customerId);
         const customerName = customer?.business?.displayName || customer?.business?.name || invoice.customerId || 'N/A';
+        const customerId = customer?.id || null;
 
         const itemsCount = invoice.items?.length || 0;
         const itemsText = itemsCount > 0 ? `${itemsCount} regel${itemsCount > 1 ? 's' : ''}` : 'Geen regels';
@@ -43,7 +55,7 @@ function buildInvoiceTableRows(invoices, customers) {
             <div class="text-xs text-gray-600 mt-1">
                 <div class="flex items-center gap-2">
                     <div class="w-20 bg-gray-200 rounded-full h-2">
-                        <div class="bg-blue-600 h-2 rounded-full" style="width: ${paymentPercentage}%"></div>
+                        <div class="bg-purple-600 h-2 rounded-full" style="width: ${paymentPercentage}%"></div>
                     </div>
                     <span>${formatCurrency(paidAmount)} / ${formatCurrency(invoice.totalAmount)}</span>
                 </div>
@@ -56,7 +68,7 @@ function buildInvoiceTableRows(invoices, customers) {
                     <div class="text-blue-600 hover:text-blue-900 cursor-pointer hover:underline" onclick="showInvoiceDetails('${invoice.id}')">${invoice.invoiceNumber || 'N/A'}</div>
                     ${invoice.invoiceSource === 'order' ? `
                             <div class="text-xs mt-1">
-                                <span class="px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">
+                                <span class="px-1.5 py-0.5 rounded bg-orange-100 text-orange-700">
                                     <i class="fas fa-shopping-cart"></i> Order
                                 </span>
                             </div>` : invoice.invoiceSource === 'subscription' ? `
@@ -69,10 +81,17 @@ function buildInvoiceTableRows(invoices, customers) {
                                 <span class="px-1.5 py-0.5 rounded bg-gray-100 text-gray-700">
                                     <i class="fas fa-pen"></i> Handmatig
                                 </span>
-                            </div>` : ''}
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm">${customerName}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" title="${invoice.reference || ''}">${invoice.reference || '-'}</td>
+                                            </div>` : ''}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                    ${customerId ? `
+                                        <div class="text-blue-600 hover:text-blue-900 cursor-pointer hover:underline" 
+                                             onclick="showEditCustomer('${customerId}')">
+                                            ${customerName}
+                                        </div>
+                                    ` : customerName}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" title="${invoice.reference || ''}">${invoice.reference || '-'}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm">${formatDate(invoice.invoiceDate)}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm">${formatDate(invoice.dueDate)}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm">
@@ -111,27 +130,121 @@ function buildInvoiceTableRows(invoices, customers) {
     return html;
 }
 
-function buildInvoiceTable(invoices, customers) {
+function _invoiceSortIcon(col) {
+    if (_invoiceSortCol !== col) return '<i class="fas fa-sort ml-1 opacity-30"></i>';
+    return _invoiceSortDir === 1
+        ? '<i class="fas fa-sort-up ml-1"></i>'
+        : '<i class="fas fa-sort-down ml-1"></i>';
+}
+
+function filterInvoicesBySearch(invoices, customers) {
+    const q = _invoiceSearch.trim().toLowerCase();
+    if (!q) return invoices;
+    return invoices.filter(inv => {
+        const customer = customers?.find(c => c.customerId === inv.customerId);
+        const customerName = (customer?.business?.displayName || customer?.business?.name || inv.customerId || '').toLowerCase();
+        return (inv.invoiceNumber || '').toLowerCase().includes(q)
+            || customerName.includes(q)
+            || (inv.reference || '').toLowerCase().includes(q);
+    });
+}
+
+function buildInvoicePagination(section, currentPage, totalItems) {
+    const totalPages = Math.ceil(totalItems / _invoicePageSize);
+    if (totalPages <= 1) return '';
+    const start = (currentPage - 1) * _invoicePageSize + 1;
+    const end = Math.min(currentPage * _invoicePageSize, totalItems);
+
+    const btn = (page, label) => `<button onclick="goToInvoicePage('${section}', ${page})" class="px-3 py-1 rounded border text-sm hover:bg-gray-100">${label}</button>`;
+    const activeBtn = (page) => `<span class="px-3 py-1 rounded bg-purple-600 text-white text-sm font-medium">${page}</span>`;
+    const ellipsis = `<span class="px-2 py-1 text-sm text-gray-400">…</span>`;
+
+    const delta = 2;
+    let pageNums = [];
+    for (let i = 1; i <= totalPages; i++) {
+        if (i === 1 || i === totalPages || (i >= currentPage - delta && i <= currentPage + delta)) {
+            pageNums.push(i);
+        }
+    }
+
+    let buttons = '';
+    let prev = null;
+    for (const p of pageNums) {
+        if (prev !== null && p - prev > 1) buttons += ellipsis;
+        buttons += p === currentPage ? activeBtn(p) : btn(p, p);
+        prev = p;
+    }
+
+    return `
+        <div class="flex items-center justify-between px-4 py-3 border-t bg-gray-50 rounded-b">
+            <span class="text-sm text-gray-500">${start}–${end} van ${totalItems}</span>
+            <div class="flex gap-1 flex-wrap items-center">
+                ${currentPage > 1 ? btn(currentPage - 1, '<i class="fas fa-chevron-left"></i>') : ''}
+                ${buttons}
+                ${currentPage < totalPages ? btn(currentPage + 1, '<i class="fas fa-chevron-right"></i>') : ''}
+            </div>
+        </div>
+    `;
+}
+
+function buildInvoiceTable(invoices, customers, section) {
     if (!invoices || invoices.length === 0) return null;
+
+    const sorted = [...invoices].sort((a, b) => {
+        if (_invoiceSortCol === 'invoiceNumber') {
+            const aNum = parseInt((a.invoiceNumber || '').replace(/\D/g, ''), 10) || 0;
+            const bNum = parseInt((b.invoiceNumber || '').replace(/\D/g, ''), 10) || 0;
+            return (aNum - bNum) * _invoiceSortDir;
+        }
+        if (_invoiceSortCol === 'totalAmount') {
+            return ((a.totalAmount || 0) - (b.totalAmount || 0)) * _invoiceSortDir;
+        }
+        let aVal = '', bVal = '';
+        const aC = customers?.find(c => c.customerId === a.customerId);
+        const bC = customers?.find(c => c.customerId === b.customerId);
+        if (_invoiceSortCol === 'customer') {
+            aVal = aC?.business?.displayName || aC?.business?.name || a.customerId || '';
+            bVal = bC?.business?.displayName || bC?.business?.name || b.customerId || '';
+        } else if (_invoiceSortCol === 'reference') {
+            aVal = a.reference || '';
+            bVal = b.reference || '';
+        } else if (_invoiceSortCol === 'invoiceDate') {
+            aVal = a.invoiceDate || '';
+            bVal = b.invoiceDate || '';
+        } else if (_invoiceSortCol === 'dueDate') {
+            aVal = a.dueDate || '';
+            bVal = b.dueDate || '';
+        } else if (_invoiceSortCol === 'status') {
+            aVal = a.status || '';
+            bVal = b.status || '';
+        }
+        return aVal < bVal ? -_invoiceSortDir : aVal > bVal ? _invoiceSortDir : 0;
+    });
+
+    const page = _invoicePages[section] || 1;
+    const paginated = sorted.slice((page - 1) * _invoicePageSize, page * _invoicePageSize);
+
+    const thSort = 'px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase text-nowrap cursor-pointer hover:bg-gray-100 select-none';
     return `
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nummer</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Klant</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Referentie</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Datum</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Vervaldatum</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Bedrag</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                        <th class="${thSort}" onclick="sortInvoices('invoiceNumber')">Nummer ${_invoiceSortIcon('invoiceNumber')}</th>
+                        <th class="${thSort}" onclick="sortInvoices('customer')">Klant ${_invoiceSortIcon('customer')}</th>
+                        <th class="${thSort}" onclick="sortInvoices('reference')">Referentie ${_invoiceSortIcon('reference')}</th>
+                        <th class="${thSort}" onclick="sortInvoices('invoiceDate')">Datum ${_invoiceSortIcon('invoiceDate')}</th>
+                        <th class="${thSort}" onclick="sortInvoices('dueDate')">Vervaldatum ${_invoiceSortIcon('dueDate')}</th>
+                        <th class="${thSort}" onclick="sortInvoices('totalAmount')">Bedrag ${_invoiceSortIcon('totalAmount')}</th>
+                        <th class="${thSort}" onclick="sortInvoices('status')">Status ${_invoiceSortIcon('status')}</th>
                         <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Acties</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
-                    ${buildInvoiceTableRows(invoices, customers)}
+                    ${buildInvoiceTableRows(paginated, customers)}
                 </tbody>
             </table>
+            ${buildInvoicePagination(section, page, sorted.length)}
         </div>
     `;
 }
@@ -143,59 +256,123 @@ async function loadInvoices() {
             getAll('customers')
         ]);
 
-        const unpaidStatuses = ['pending', 'overdue', 'partially_paid', 'unpaid'];
-        const unpaidInvoices = (invoices || []).filter(inv => {
-            const paidAmount = (inv.payments || []).reduce((sum, p) => sum + (p.amount || 0), 0);
-            const isPaid = paidAmount >= inv.totalAmount && inv.totalAmount > 0;
-            return !isPaid && unpaidStatuses.includes(inv.status);
-        });
-        const paidInvoices = (invoices || []).filter(inv => {
-            const paidAmount = (inv.payments || []).reduce((sum, p) => sum + (p.amount || 0), 0);
-            const isPaid = paidAmount >= inv.totalAmount && inv.totalAmount > 0;
-            return isPaid || inv.status === 'paid';
-        });
-
-        let html = `
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-2xl font-bold">Facturen</h2>
-                ${canEdit() ? `
-                <button onclick="showCreateInvoice()" 
-                        class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded">
-                    <i class="fas fa-plus"></i> Nieuwe Factuur
-                </button>
-                ` : ''}
-            </div>
-        `;
-
-        // Unpaid invoices table
-        html += `
-            <div class="mb-8">
-                <h3 class="text-lg font-semibold mb-3 flex items-center gap-2">
-                    <span class="px-2 py-0.5 text-xs font-semibold rounded bg-yellow-100 text-yellow-800">
-                        <i class="fas fa-clock"></i> Niet betaald
-                    </span>
-                    <span class="text-gray-500 text-sm font-normal">(${unpaidInvoices.length})</span>
-                </h3>
-                ${buildInvoiceTable(unpaidInvoices, customers) || '<p class="text-gray-500 text-center py-6">Geen openstaande facturen</p>'}
-            </div>
-        `;
-
-        // Paid invoices table
-        html += `
-            <div>
-                <h3 class="text-lg font-semibold mb-3 flex items-center gap-2">
-                    <span class="px-2 py-0.5 text-xs font-semibold rounded bg-green-100 text-green-800">
-                        <i class="fas fa-check-circle"></i> Betaald
-                    </span>
-                    <span class="text-gray-500 text-sm font-normal">(${paidInvoices.length})</span>
-                </h3>
-                ${buildInvoiceTable(paidInvoices, customers) || '<p class="text-gray-500 text-center py-6">Geen betaalde facturen</p>'}
-            </div>
-        `;
-
-        document.getElementById('content').innerHTML = html;
+        _invoicesCache = invoices || [];
+        _invoicesCustomersCache = customers || [];
+        renderInvoicesContent();
     } catch (error) {
         showError(error.message);
+    }
+}
+
+function sortInvoices(col) {
+    if (_invoiceSortCol === col) {
+        _invoiceSortDir = -_invoiceSortDir;
+    } else {
+        _invoiceSortCol = col;
+        _invoiceSortDir = 1;
+    }
+    _invoicePages = { unpaid: 1, paid: 1, cancelled: 1 };
+    renderInvoicesContent();
+}
+
+function searchInvoices(q) {
+    _invoiceSearch = q;
+    _invoiceSearchFocused = true;
+    _invoicePages = { unpaid: 1, paid: 1, cancelled: 1 };
+    renderInvoicesContent();
+}
+
+function goToInvoicePage(section, page) {
+    _invoicePages[section] = page;
+    renderInvoicesContent();
+}
+
+function renderInvoicesContent() {
+    const invoices = _invoicesCache;
+    const customers = _invoicesCustomersCache;
+
+    const filtered = filterInvoicesBySearch(invoices, customers);
+
+    const unpaidStatuses = ['pending', 'overdue', 'partially_paid', 'unpaid'];
+    const unpaidInvoices = filtered.filter(inv => {
+        const paidAmount = (inv.payments || []).reduce((sum, p) => sum + (p.amount || 0), 0);
+        const isPaid = inv.totalAmount <= 0 || paidAmount >= inv.totalAmount;
+        return !isPaid && unpaidStatuses.includes(inv.status);
+    });
+    const paidInvoices = filtered.filter(inv => {
+        const paidAmount = (inv.payments || []).reduce((sum, p) => sum + (p.amount || 0), 0);
+        const isPaid = inv.totalAmount <= 0 || paidAmount >= inv.totalAmount;
+        return isPaid || inv.status === 'paid';
+    });
+    const cancelledInvoices = filtered.filter(inv => inv.status === 'cancelled');
+
+    let html = `
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold">Facturen</h2>
+            ${canEdit() ? `
+            <button onclick="showCreateInvoice()" 
+                    class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded">
+                <i class="fas fa-plus"></i> Nieuwe Factuur
+            </button>
+            ` : ''}
+        </div>
+        <div class="mb-6">
+            <div class="relative w-full sm:w-96">
+                <span class="absolute inset-y-0 left-3 flex items-center text-gray-400"><i class="fas fa-search"></i></span>
+                <input type="text"
+                       id="invoiceSearch"
+                       oninput="searchInvoices(this.value)"
+                       value="${_invoiceSearch.replace(/"/g, '&quot;')}"
+                       placeholder="Zoek op nummer, klant of referentie..."
+                       class="w-full pl-9 pr-4 py-2 border rounded focus:ring-2 focus:ring-purple-500 focus:outline-none">
+            </div>
+        </div>
+    `;
+
+    // Unpaid invoices table
+    html += `
+        <div class="mb-8">
+            <h3 class="text-lg font-semibold mb-3 flex items-center gap-2">
+                <span class="px-2 py-0.5 text-xs font-semibold rounded bg-purple-100 text-purple-800">
+                    <i class="fas fa-clock"></i> Niet betaald
+                </span>
+                <span class="text-gray-500 text-sm font-normal">(${unpaidInvoices.length})</span>
+            </h3>
+            ${buildInvoiceTable(unpaidInvoices, customers, 'unpaid') || '<p class="text-gray-500 text-center py-6">Geen openstaande facturen</p>'}
+        </div>
+    `;
+
+    // Paid invoices table
+    html += `
+        <div class="mb-8">
+            <h3 class="text-lg font-semibold mb-3 flex items-center gap-2">
+                <span class="px-2 py-0.5 text-xs font-semibold rounded bg-green-100 text-green-800">
+                    <i class="fas fa-check-circle"></i> Voltooid
+                </span>
+                <span class="text-gray-500 text-sm font-normal">(${paidInvoices.length})</span>
+            </h3>
+            ${buildInvoiceTable(paidInvoices, customers, 'paid') || '<p class="text-gray-500 text-center py-6">Geen betaalde facturen</p>'}
+        </div>
+    `;
+
+    // Cancelled invoices table
+    html += `
+        <div>
+            <h3 class="text-lg font-semibold mb-3 flex items-center gap-2">
+                <span class="px-2 py-0.5 text-xs font-semibold rounded bg-red-100 text-red-600">
+                    <i class="fas fa-ban"></i> Geannuleerd
+                </span>
+                <span class="text-gray-500 text-sm font-normal">(${cancelledInvoices.length})</span>
+            </h3>
+            ${buildInvoiceTable(cancelledInvoices, customers, 'cancelled') || '<p class="text-gray-500 text-center py-6">Geen geannuleerde facturen</p>'}
+        </div>
+    `;
+
+    document.getElementById('content').innerHTML = html;
+    if (_invoiceSearchFocused) {
+        const el = document.getElementById('invoiceSearch');
+        if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+        _invoiceSearchFocused = false;
     }
 }
 
@@ -218,7 +395,7 @@ function getInvoiceForm(invoice = null, allInvoices = [], customers = []) {
     const dueDate = invoice ? (inv.dueDate ? inv.dueDate.split('T')[0] : '') : getDatePlusDays(14);
 
     const isReadonly = invoice ? 'readonly' : 'readonly';
-    const bgColor = invoice ? 'bg-gray-100' : 'bg-blue-50';
+    const bgColor = invoice ? 'bg-gray-100' : 'bg-purple-50';
 
     // Generate customer dropdown options
     let customerOptions = '<option value="">-- Selecteer een klant --</option>';
@@ -240,14 +417,14 @@ function getInvoiceForm(invoice = null, allInvoices = [], customers = []) {
     return `
         <div class="space-y-6 max-h-[70vh] overflow-y-auto">
             <!-- Header Information -->
-            <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+            <div class="bg-purple-50 p-4 rounded-lg border border-purple-200">
                 <h3 class="font-bold text-lg mb-3">Factuurgegevens</h3>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                         <label for="customerId" class="block text-sm font-medium mb-2">Klant<span class="text-red-600 ml-1">*</span></label>
                         <select id="customerId" required
                                 ${invoice ? 'disabled' : ''}
-                                class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500 ${invoice ? 'bg-gray-100 cursor-not-allowed' : ''}">
+                                class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-purple-500 ${invoice ? 'bg-gray-100 cursor-not-allowed' : ''}">
                             ${customerOptions}
                         </select>
                         ${invoice ? '<p class="text-xs text-gray-500 mt-1"><i class="fas fa-lock"></i> Klant kan niet worden gewijzigd</p>' : ''}
@@ -255,11 +432,11 @@ function getInvoiceForm(invoice = null, allInvoices = [], customers = []) {
                     <div>
                         <label for="invoiceNumber" class="block text-sm font-medium mb-2">
                             Factuurnummer<span class="text-red-600 ml-1">*</span>
-                            ${!invoice ? '<span class="text-xs text-blue-600">(Automatisch)</span>' : ''}
+                            ${!invoice ? '<span class="text-xs text-purple-600">(Automatisch)</span>' : ''}
                         </label>
                         <input type="text" id="invoiceNumber" value="${invoiceNumber}" 
                                ${isReadonly} required
-                               class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500 ${bgColor}">
+                               class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-purple-500 ${bgColor}">
                     </div>
                 </div>
 
@@ -271,7 +448,7 @@ function getInvoiceForm(invoice = null, allInvoices = [], customers = []) {
                         </label>
                         <input type="date" id="invoiceDate" 
                                value="${invoiceDate}" required
-                               class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500">
+                               class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-purple-500">
                     </div>
                     <div>
                         <label for="dueDate" class="block text-sm font-medium mb-2">
@@ -280,13 +457,13 @@ function getInvoiceForm(invoice = null, allInvoices = [], customers = []) {
                         </label>
                         <input type="date" id="dueDate" 
                                value="${dueDate}" required
-                               class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500">
+                               class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-purple-500">
                     </div>
                     <div>
                         <label for="reference" class="block text-sm font-medium mb-2">Referentie</label>
                         <input type="text" id="reference" value="${inv.reference || ''}" 
                                placeholder="PO nummer, project code..." 
-                               class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500">
+                               class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-purple-500">
                     </div>
                 </div>
             </div>
@@ -297,7 +474,7 @@ function getInvoiceForm(invoice = null, allInvoices = [], customers = []) {
                     <h3 class="font-bold text-lg">Factuurregels</h3>
                     <div class="flex gap-2">
                         <button type="button" onclick="pickStandardInvoiceItem()"
-                                class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm">
+                                class="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded text-sm">
                             <i class="fas fa-list-check"></i> Standaard&shy;regels
                         </button>
                         <button type="button" onclick="addInvoiceItem()" 
@@ -326,7 +503,7 @@ function getInvoiceForm(invoice = null, allInvoices = [], customers = []) {
                     </div>
                     <div class="flex justify-between text-lg font-bold border-t pt-2">
                         <span>Totaal (incl. BTW):</span>
-                        <span id="totalDisplay" class="text-blue-600">€ 0,00</span>
+                        <span id="totalDisplay" class="text-purple-600">€ 0,00</span>
                     </div>
                 </div>
             </div>
@@ -337,7 +514,7 @@ function getInvoiceForm(invoice = null, allInvoices = [], customers = []) {
                     <label for="notes" class="block text-sm font-medium mb-2">Opmerkingen</label>
                     <textarea id="notes" rows="3" 
                               placeholder="Extra informatie voor op de factuur..."
-                              class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500">${inv.notes || ''}</textarea>
+                              class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-purple-500">${inv.notes || ''}</textarea>
                 </div>
             </div>
         </div>
@@ -346,13 +523,6 @@ function getInvoiceForm(invoice = null, allInvoices = [], customers = []) {
 
 // Enhanced invoice form with payment history (for editing existing invoices)
 function getInvoiceFormWithPayments(invoice, allInvoices, customers, payments, totalPaid, remainingAmount) {
-    console.log('getInvoiceFormWithPayments called with:', {
-        invoiceNumber: invoice.invoiceNumber,
-        paymentsCount: payments?.length || 0,
-        totalPaid,
-        remainingAmount
-    });
-
     // Get the base form
     const baseForm = getInvoiceForm(invoice, allInvoices, customers);
 
@@ -385,15 +555,8 @@ function getInvoiceFormWithPayments(invoice, allInvoices, customers, payments, t
 
     // Payment status indicator
     const paymentPercentage = invoice.totalAmount > 0 ? (totalPaid / invoice.totalAmount * 100) : 0;
-    const statusColor = paymentPercentage >= 100 ? 'green' : paymentPercentage > 0 ? 'blue' : 'yellow';
-    const statusBg = paymentPercentage >= 100 ? 'bg-green-50 border-green-200' : paymentPercentage > 0 ? 'bg-blue-50 border-blue-200' : 'bg-yellow-50 border-yellow-200';
-
-    console.log('Payment section config:', {
-        paymentPercentage,
-        statusColor,
-        statusBg,
-        showButton: remainingAmount > 0
-    });
+    const statusColor = paymentPercentage >= 100 ? 'green' : paymentPercentage > 0 ? 'purple' : 'yellow';
+    const statusBg = paymentPercentage >= 100 ? 'bg-green-50 border-green-200' : paymentPercentage > 0 ? 'bg-purple-50 border-purple-200' : 'bg-yellow-50 border-yellow-200';
 
     // Betaalgeschiedenis is altijd read-only (vergrendeld)
     // Betalingen worden beheerd via de betalingen module, niet via factuur bewerken
@@ -450,11 +613,8 @@ function getInvoiceFormWithPayments(invoice, allInvoices, customers, payments, t
         return baseForm; // Return base form unchanged if we can't find the insertion point
     }
 
-    console.log('Inserting payment section at position:', lastDivIndex);
-
     // Insert the payment section before the last </div>
     const result = baseForm.slice(0, lastDivIndex) + paymentSection + baseForm.slice(lastDivIndex);
-    console.log('Payment section inserted successfully');
     return result;
 }
 
@@ -468,43 +628,37 @@ function getInvoiceItemRow(index, item = {}) {
 
     return `
         <div class="invoice-item bg-white p-3 rounded border" data-index="${index}">
-            <div class="grid grid-cols-2 sm:grid-cols-12 gap-2 items-start">
-                <div class="col-span-2 sm:col-span-5">
+            <div class="flex flex-wrap gap-2 items-end">
+                <div class="flex-1 min-w-0">
                     <label class="block text-xs font-medium mb-1">Titel<span class="text-red-600 ml-1">*</span></label>
-                    <input type="text" 
-                           class="item-title w-full px-2 py-1 border rounded text-sm font-medium" 
+                    <input type="text"
+                           class="item-title w-full px-2 py-1 border rounded text-sm font-medium"
                            value="${title}"
                            placeholder="Korte titel van dienst/product..."
                            onchange="calculateInvoiceTotals()"
                            required>
-                    <label class="block text-xs font-medium mb-1 mt-2">Beschrijving <span class="text-xs text-gray-500">(optioneel)</span></label>
-                    <textarea 
-                           class="item-description w-full px-2 py-1 border rounded text-sm text-gray-600" 
-                           placeholder="Extra details..."
-                           rows="2"
-                           onchange="calculateInvoiceTotals()">${description}</textarea>
                 </div>
-                <div class="col-span-1 sm:col-span-2">
+                <div class="w-24 shrink-0">
                     <label class="block text-xs font-medium mb-1">Aantal<span class="text-red-600 ml-1">*</span></label>
-                    <input type="number" 
-                           class="item-quantity w-full px-2 py-1 border rounded text-sm" 
+                    <input type="number"
+                           class="item-quantity w-full px-2 py-1 border rounded text-sm"
                            value="${quantity}"
                            min="1"
                            step="0.01"
                            onchange="calculateInvoiceTotals()"
                            required>
                 </div>
-                <div class="col-span-1 sm:col-span-2">
+                <div class="w-28 shrink-0">
                     <label class="block text-xs font-medium mb-1">Prijs<span class="text-red-600 ml-1">*</span></label>
-                    <input type="number" 
-                           class="item-price w-full px-2 py-1 border rounded text-sm" 
+                    <input type="number"
+                           class="item-price w-full px-2 py-1 border rounded text-sm"
                            value="${unitPrice}"
                            min="0"
                            step="0.01"
                            onchange="calculateInvoiceTotals()"
                            required>
                 </div>
-                <div class="col-span-1 sm:col-span-2">
+                <div class="w-20 shrink-0">
                     <label class="block text-xs font-medium mb-1">BTW %</label>
                     <select class="item-vat w-full px-2 py-1 border rounded text-sm"
                             onchange="calculateInvoiceTotals()">
@@ -513,14 +667,22 @@ function getInvoiceItemRow(index, item = {}) {
                         <option value="21" ${vatPercentage === 21 ? 'selected' : ''}>21%</option>
                     </select>
                 </div>
-                <div class="col-span-1 sm:col-span-1 flex items-end">
-                    <button type="button" 
+                <div class="shrink-0">
+                    <button type="button"
                             onclick="removeInvoiceItem(${index})"
-                            class="px-2 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-sm w-full"
+                            class="px-2 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-sm"
                             title="Verwijder regel">
                         <i class="fas fa-trash"></i>
                     </button>
                 </div>
+            </div>
+            <div class="mt-2">
+                <label class="block text-xs font-medium mb-1">Beschrijving <span class="text-xs text-gray-500">(optioneel)</span></label>
+                <textarea
+                       class="item-description w-full px-2 py-1 border rounded text-sm text-gray-600"
+                       placeholder="Extra details..."
+                       rows="2"
+                       onchange="calculateInvoiceTotals()">${description}</textarea>
             </div>
             <div class="text-xs text-gray-600 mt-1">
                 Subtotaal: <span class="item-subtotal font-semibold">€ 0,00</span>
@@ -808,12 +970,15 @@ function validateInvoiceData(data) {
 }
 
 async function showCreateInvoice() {
+    const loadingModal = showLoadingModal('Formulier voorbereiden...');
     try {
         // Fetch all invoices and customers
         const [invoices, customers] = await Promise.all([
             getAll('invoices'),
             getAll('customers')
         ]);
+
+        hideLoadingModal();
 
         if (!customers || customers.length === 0) {
             showToast('Geen klanten beschikbaar. Maak eerst een klant aan.', 'error');
@@ -833,7 +998,7 @@ async function showCreateInvoice() {
             await create('invoices', data);
             showToast('Factuur aangemaakt', 'success');
             loadInvoices();
-        });
+        }, 'Opslaan', 'lg');
 
         // Initialize calculations and date listener after modal is created
         setTimeout(() => {
@@ -841,17 +1006,21 @@ async function showCreateInvoice() {
             setupInvoiceDateListener();
         }, 100);
     } catch (error) {
+        hideLoadingModal();
         showToast('Fout bij laden van gegevens: ' + error.message, 'error');
     }
 }
 
 async function showEditInvoice(id) {
+    const loadingModal = showLoadingModal('Factuur laden...');
     try {
         const [invoice, allInvoices, customers] = await Promise.all([
             getById('invoices', id),
             getAll('invoices'),
             getAll('customers')
         ]);
+
+        hideLoadingModal();
 
         // Get payments from within the invoice
         const invoicePayments = invoice.payments || [];
@@ -872,15 +1041,26 @@ async function showEditInvoice(id) {
                     throw new Error(`Validatie fouten:\n${errorMessages}`);
                 }
 
-                // Preserve existing payments when updating
+                // Preserve existing payments and invoiceSource when updating
                 data.payments = invoice.payments;
+                data.invoiceSource = invoice.invoiceSource || 'manual'; // Preserve original source
+
+                // Preserve orderId if it exists
+                if (invoice.orderId) {
+                    data.orderId = invoice.orderId;
+                }
+
+                // Preserve subscriptionId if it exists
+                if (invoice.subscriptionId) {
+                    data.subscriptionId = invoice.subscriptionId;
+                }
 
                 await update('invoices', id, data);
                 showToast('Factuur bijgewerkt', 'success');
                 loadInvoices();
             },
             'Opslaan',
-            'xl' // Larger modal for payment history
+            'lg' // modal breedte
         );
 
         // Initialize calculations after modal is created
@@ -890,6 +1070,7 @@ async function showEditInvoice(id) {
             setupStatusChangeListener(invoice, invoicePayments, totalPaid, remainingAmount);
         }, 100);
     } catch (error) {
+        hideLoadingModal();
         showToast('Fout bij laden van factuur: ' + error.message, 'error');
     }
 }
@@ -921,8 +1102,8 @@ function setupStatusChangeListener(invoice, payments, totalPaid, remainingAmount
         const isPaid = newStatus === 'paid';
 
         // Update section styling
-        const statusColor = isPaid ? 'green' : (totalPaid > 0 ? 'blue' : 'yellow');
-        const statusBg = isPaid ? 'bg-green-50 border-green-200' : (totalPaid > 0 ? 'bg-blue-50 border-blue-200' : 'bg-yellow-50 border-yellow-200');
+        const statusColor = isPaid ? 'green' : (totalPaid > 0 ? 'purple' : 'yellow');
+        const statusBg = isPaid ? 'bg-green-50 border-green-200' : (totalPaid > 0 ? 'bg-purple-50 border-purple-200' : 'bg-yellow-50 border-yellow-200');
 
         paymentSection.className = `${statusBg} p-4 rounded-lg border mt-6`;
 
@@ -1034,9 +1215,9 @@ async function showInvoiceDetails(id) {
 
         const statusConfig = {
             paid: { class: 'bg-green-100 text-green-800', label: 'Betaald' },
-            partially_paid: { class: 'bg-blue-100 text-blue-800', label: 'Gedeeltelijk Betaald' },
-            pending: { class: 'bg-yellow-100 text-yellow-800', label: 'Openstaand' },
-            unpaid: { class: 'bg-yellow-100 text-yellow-800', label: 'Openstaand' },
+            partially_paid: { class: 'bg-purple-100 text-purple-800', label: 'Gedeeltelijk Betaald' },
+            pending: { class: 'bg-purple-100 text-purple-800', label: 'Openstaand' },
+            unpaid: { class: 'bg-purple-100 text-purple-800', label: 'Openstaand' },
             overdue: { class: 'bg-red-100 text-red-800', label: 'Achterstallig' }
         };
         const status = statusConfig[invoice.status] || statusConfig.pending;
@@ -1114,7 +1295,7 @@ async function showInvoiceDetails(id) {
                     </div>
                     ${invoicePayments.length > 0 ? `
                     <div class="flex justify-between text-green-600"><span>Betaald</span><span>${formatCurrency(totalPaid)}</span></div>
-                    <div class="flex justify-between font-semibold ${remainingAmount > 0 ? 'text-yellow-600' : 'text-green-600'}">
+                    <div class="flex justify-between font-semibold ${remainingAmount > 0 ? 'text-purple-600' : 'text-green-600'}">
                         <span>Openstaand</span><span>${formatCurrency(remainingAmount)}</span>
                     </div>` : ''}
                 </div>
@@ -1125,12 +1306,12 @@ async function showInvoiceDetails(id) {
                     ${paymentsHtml}
                 </div>` : ''}
 
-                ${invoice.notes ? `<div class="bg-blue-50 rounded p-3 text-sm text-blue-800">${invoice.notes}</div>` : ''}
+                ${invoice.notes ? `<div class="bg-purple-50 rounded p-3 text-sm text-purple-800">${invoice.notes}</div>` : ''}
 
                 <div class="flex justify-end">
                     <button onclick="downloadInvoicePdf('${invoice.id}')"
                             class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded flex items-center gap-2">
-                        <i class="fas fa-file-download"></i> Factuur downloaden als PDF
+                        <i class="fas fa-file-download"></i> Download factuur
                     </button>
                 </div>
             </div>

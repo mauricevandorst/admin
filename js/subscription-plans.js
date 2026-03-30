@@ -1,11 +1,11 @@
-// Maintenance Plans management
-async function loadMaintenancePlans() {
+// subscription Plans management
+async function loadsubscriptionPlans() {
     try {
-        const plans = await getAll('maintenance-plans');
+        const plans = await getAll('subscription-plans');
         
         let html = `
             <div class="flex justify-between items-center mb-6">
-                <h2 class="text-2xl font-bold">Onderhouds&shy;plannen</h2>
+                <h2 class="text-2xl font-bold">Abonnements&shy;plannen</h2>
                 <button onclick="showCreatePlan()" 
                         class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-nowrap rounded">
                     <i class="fas fa-plus"></i> Nieuw Plan
@@ -264,7 +264,7 @@ function getPlanData() {
     return data;
 }
 
-// Validate maintenance plan form data
+// Validate subscription plan form data
 function validatePlanData(data) {
     const errors = [];
 
@@ -308,8 +308,8 @@ function validatePlanData(data) {
 }
 
 function showCreatePlan() {
-    getAll('maintenance-plans').then(plans => {
-        createModal('Nieuw Onderhoudsplan', getPlanForm(null, plans || []), async () => {
+    getAll('subscription-plans').then(plans => {
+        createModal('Nieuw Abonnementsplan', getPlanForm(null, plans || []), async () => {
             const data = getPlanData();
 
             // Validate form data
@@ -319,9 +319,9 @@ function showCreatePlan() {
                 throw new Error(`Validatie fouten:\n${errorMessages}`);
             }
 
-            await create('maintenance-plans', data);
-            showToast('Onderhoudsplan aangemaakt', 'success');
-            loadMaintenancePlans();
+            await create('subscription-plans', data);
+            showToast('Abonnementsplan aangemaakt', 'success');
+            loadsubscriptionPlans();
         });
     }).catch(error => {
         showToast('Fout bij laden plannen: ' + error.message, 'error');
@@ -331,8 +331,8 @@ function showCreatePlan() {
 async function showEditPlan(id) {
     try {
         const [plan, allPlans] = await Promise.all([
-            getById('maintenance-plans', id),
-            getAll('maintenance-plans')
+            getById('subscription-plans', id),
+            getAll('subscription-plans')
         ]);
 
         createModal('Plan Bewerken', getPlanForm(plan, allPlans), async () => {
@@ -345,9 +345,9 @@ async function showEditPlan(id) {
                 throw new Error(`Validatie fouten:\n${errorMessages}`);
             }
 
-            await update('maintenance-plans', id, data);
+            await update('subscription-plans', id, data);
             showToast('Plan bijgewerkt', 'success');
-            loadMaintenancePlans();
+            loadsubscriptionPlans();
         });
     } catch (error) {
         showToast('Fout bij laden plan: ' + error.message, 'error');
@@ -358,9 +358,9 @@ async function deletePlan(id) {
     if (!confirm('Weet je zeker dat je dit plan wilt verwijderen?')) return;
     
     try {
-        await remove('maintenance-plans', id);
+        await remove('subscription-plans', id);
         showToast('Plan verwijderd', 'success');
-        loadMaintenancePlans();
+        loadsubscriptionPlans();
     } catch (error) {
         showToast(error.message, 'error');
     }

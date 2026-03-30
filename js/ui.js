@@ -90,17 +90,23 @@ function switchTab(tabName) {
         case 'customers':
             loadCustomers();
             break;
+        case 'suppliers':
+            loadSuppliers();
+            break;
         case 'orders':
             loadOrders();
             break;
         case 'invoices':
             loadInvoices();
             break;
+        case 'purchase-invoices':
+            loadPurchaseInvoices();
+            break;
         case 'payments':
             loadPayments();
             break;
-        case 'maintenance-plans':
-            loadMaintenancePlans();
+        case 'subscription-plans':
+            loadsubscriptionPlans();
             break;
         case 'subscriptions':
             loadSubscriptions();
@@ -126,6 +132,10 @@ function closeAllModals() {
     if (userSettingsModal && !userSettingsModal.classList.contains('hidden')) {
         closeUserSettings();
     }
+
+    // Close all modal-overlay elements
+    const overlays = document.querySelectorAll('.modal-overlay');
+    overlays.forEach(overlay => overlay.remove());
 
     // Close all other modals (created with createModal)
     const modals = document.querySelectorAll('.fixed');
@@ -182,6 +192,37 @@ window.addEventListener('resize', () => {
         }
     }
 });
+
+// Show loading modal (can be used before opening a modal while data is loading)
+function showLoadingModal(message = 'Gegevens laden...') {
+    const loadingModal = document.createElement('div');
+    loadingModal.id = 'loadingModal';
+    loadingModal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]';
+    loadingModal.style.backdropFilter = 'blur(4px)';
+
+    loadingModal.innerHTML = `
+        <div class="bg-white rounded-lg p-8 max-w-md w-full mx-4 shadow-2xl">
+            <div class="text-center">
+                <div class="mb-4">
+                    <i class="fas fa-spinner fa-spin text-5xl text-purple-600"></i>
+                </div>
+                <p class="text-lg font-medium text-gray-800">${message}</p>
+                <p class="text-sm text-gray-500 mt-2">Even geduld alstublieft...</p>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(loadingModal);
+    return loadingModal;
+}
+
+// Hide loading modal
+function hideLoadingModal() {
+    const loadingModal = document.getElementById('loadingModal');
+    if (loadingModal) {
+        loadingModal.remove();
+    }
+}
 
 function createModal(title, content, onSave, saveButtonText = 'Opslaan', size = 'md') {
     const modal = document.createElement('div');
@@ -278,7 +319,23 @@ function closeModalWithConfirmation(buttonElement) {
 }
 
 // Close the most recent modal without confirmation
-function closeModal() {
+function closeModal(event) {
+    // If called with an event (e.g., from onclick on overlay), check if we clicked the overlay itself
+    if (event) {
+        // Only close if we clicked the overlay itself, not its children
+        if (event.target !== event.currentTarget) {
+            return;
+        }
+    }
+
+    // Find and remove modal-overlay elements
+    const overlays = document.querySelectorAll('.modal-overlay');
+    if (overlays.length > 0) {
+        overlays[overlays.length - 1].remove();
+        return;
+    }
+
+    // Fallback to old modal system
     const modals = document.querySelectorAll('.fixed');
     // Find the last modal (excluding toast and other fixed elements)
     for (let i = modals.length - 1; i >= 0; i--) {
