@@ -3,6 +3,22 @@
 // Current view state
 let currentView = 'customers';
 
+// Toggle mobile menu
+function toggleIntakeMobileMenu() {
+    const mobileMenu = document.getElementById('intakeMobileMenu');
+    const hamburgerIcon = document.getElementById('intakeHamburgerIcon');
+
+    mobileMenu.classList.toggle('menu-open');
+
+    if (mobileMenu.classList.contains('menu-open')) {
+        hamburgerIcon.classList.remove('fa-bars');
+        hamburgerIcon.classList.add('fa-times');
+    } else {
+        hamburgerIcon.classList.remove('fa-times');
+        hamburgerIcon.classList.add('fa-bars');
+    }
+}
+
 // Switch between views
 function switchIntakeView(view) {
     // Hide all views
@@ -14,8 +30,13 @@ function switchIntakeView(view) {
     // Show selected view
     document.getElementById(`view-${view}`).classList.remove('hidden');
 
-    // Set active nav button
-    document.getElementById(`nav-${view}`).classList.add('active');
+    // Set active nav button for desktop
+    const navButton = document.getElementById(`nav-${view}`);
+    if (navButton) navButton.classList.add('active');
+
+    // Set active nav button for mobile
+    const mobileNavButton = document.getElementById(`mobile-nav-${view}`);
+    if (mobileNavButton) mobileNavButton.classList.add('active');
 
     // Update current view
     currentView = view;
@@ -224,17 +245,60 @@ function formatCurrency(amount) {
     }).format(amount);
 }
 
-// Open customer modal
+// Track whether we are editing an existing customer
+let editingCustomer = null;
+
+// Open customer modal (new customer)
 function openCustomerModal() {
+    editingCustomer = null;
+    document.getElementById('customerModalTitle').textContent = 'Nieuwe Klant Aanmaken';
+    document.getElementById('customerModalIcon').className = 'fas fa-user-plus';
+    document.getElementById('customerForm').reset();
     document.getElementById('customerModal').classList.remove('hidden');
+    switchIntakeTab('contact');
 }
 
 // Close customer modal
 function closeCustomerModal() {
     if (confirm('Weet je zeker dat je wilt annuleren? Niet-opgeslagen gegevens gaan verloren.')) {
+        editingCustomer = null;
         document.getElementById('customerModal').classList.add('hidden');
         document.getElementById('customerForm').reset();
     }
+}
+
+// Edit the current customer (pre-fill modal with existing data)
+function editCurrentCustomer() {
+    const stored = sessionStorage.getItem('intakeCustomer');
+    if (!stored) return;
+
+    const customer = JSON.parse(stored);
+    editingCustomer = customer;
+
+    // Update modal title
+    document.getElementById('customerModalTitle').textContent = 'Klant Bewerken';
+    document.getElementById('customerModalIcon').className = 'fas fa-user-edit';
+
+    // Fill contact tab
+    document.getElementById('contactName').value = customer.contact?.name || '';
+    document.getElementById('contactEmail').value = customer.contact?.emailAddress || '';
+    document.getElementById('contactPhone').value = customer.contact?.phoneNumber || '';
+
+    // Fill business tab
+    document.getElementById('businessName').value = customer.business?.name || '';
+    document.getElementById('businessDisplayName').value = customer.business?.displayName || '';
+    document.getElementById('businessKvk').value = customer.business?.kvkNumber || '';
+    document.getElementById('businessVat').value = customer.business?.vatNumber || '';
+    document.getElementById('businessEmail').value = customer.business?.emailAddress || '';
+
+    // Fill address tab
+    document.getElementById('addressStreet').value = customer.business?.address?.street || '';
+    document.getElementById('addressNumber').value = customer.business?.address?.houseNumber || '';
+    document.getElementById('addressPostal').value = customer.business?.address?.postalCode || '';
+    document.getElementById('addressCity').value = customer.business?.address?.city || '';
+
+    document.getElementById('customerModal').classList.remove('hidden');
+    switchIntakeTab('contact');
 }
 
 // Generate GUID
@@ -330,25 +394,23 @@ async function saveCustomer() {
         }
 
         // Validate required fields - BUSINESS
-        if (!businessName || !businessKvk || !businessVat) {
-            alert('❌ Vul alle verplichte bedrijfsgegevens in:\n- Bedrijfsnaam (*)\n- KvK-nummer (*)\n- BTW-nummer (*)');
+        if (!businessName) {
+            alert('❌ Vul de bedrijfsnaam in');
             switchIntakeTab('business');
-            if (!businessName) document.getElementById('businessName').focus();
-            else if (!businessKvk) document.getElementById('businessKvk').focus();
-            else document.getElementById('businessVat').focus();
+            document.getElementById('businessName').focus();
             return;
         }
 
-        // Validate KvK number format (8 digits)
-        if (!/^[0-9]{8}$/.test(businessKvk)) {
+        // Validate KvK format only if filled in
+        if (businessKvk && !/^[0-9]{8}$/.test(businessKvk)) {
             alert('❌ KvK-nummer moet exact 8 cijfers bevatten (bijv. 12345678)');
             switchIntakeTab('business');
             document.getElementById('businessKvk').focus();
             return;
         }
 
-        // Validate BTW number format (NL + 9 digits + B + 2 digits)
-        if (!/^[A-Z]{2}[0-9]{9}B[0-9]{2}$/.test(businessVat)) {
+        // Validate BTW format only if filled in
+        if (businessVat && !/^[A-Z]{2}[0-9]{9}B[0-9]{2}$/.test(businessVat)) {
             alert('❌ BTW-nummer moet het juiste formaat hebben (bijv. NL123456789B01)');
             switchIntakeTab('business');
             document.getElementById('businessVat').focus();
@@ -377,57 +439,94 @@ async function saveCustomer() {
         // Extract domain from email
         const domain = contactEmail.split('@')[1] || '';
 
-        // Generate customer number
-        const customerNumber = await generateCustomerNumber();
-
-        // Create customer object
-        const customer = {
-            id: generateGuid(),
-            type: 'Customer',
-            customerId: generateGuid(),
-            customerNumber: customerNumber,
-            contact: {
-                name: contactName,
-                emailAddress: contactEmail,
-                phoneNumber: contactPhone
-            },
-            business: {
-                name: businessName,
-                displayName: businessDisplayName || businessName,
-                domain: domain,
-                emailAddress: businessEmail,
-                phoneNumber: contactPhone,
-                kvkNumber: businessKvk,
-                vatNumber: businessVat.toUpperCase(),
-                address: {
-                    street: addressStreet,
-                    houseNumber: addressNumber,
-                    postalCode: addressPostal.toUpperCase(),
-                    city: addressCity
-                }
-            }
-        };
-
-        // Save to API
         const config = getAppConfig();
         const basicAuthHeader = btoa(`${config.username}:${config.password}`);
 
-        const response = await fetch(`${config.apiUrl}/customers`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Basic ${basicAuthHeader}`
-            },
-            body: JSON.stringify(customer)
-        });
+        let savedCustomer;
 
-        if (!response.ok) {
-            throw new Error('Fout bij opslaan van klant');
+        if (editingCustomer) {
+            // Update existing customer (preserve id, customerId, customerNumber)
+            const customer = {
+                ...editingCustomer,
+                contact: {
+                    name: contactName,
+                    emailAddress: contactEmail,
+                    phoneNumber: contactPhone
+                },
+                business: {
+                    ...editingCustomer.business,
+                    name: businessName,
+                    displayName: businessDisplayName || businessName,
+                    domain: domain,
+                    emailAddress: businessEmail,
+                    phoneNumber: contactPhone,
+                    kvkNumber: businessKvk,
+                    vatNumber: businessVat.toUpperCase(),
+                    address: {
+                        street: addressStreet,
+                        houseNumber: addressNumber,
+                        postalCode: addressPostal.toUpperCase(),
+                        city: addressCity
+                    }
+                }
+            };
+
+            const response = await fetch(`${config.apiUrl}/customers/${editingCustomer.id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Basic ${basicAuthHeader}`
+                },
+                body: JSON.stringify(customer)
+            });
+
+            if (!response.ok) throw new Error('Fout bij bijwerken van klant');
+            savedCustomer = await response.json();
+        } else {
+            // Create new customer
+            const customerNumber = await generateCustomerNumber();
+            const customer = {
+                id: generateGuid(),
+                type: 'Customer',
+                customerId: generateGuid(),
+                customerNumber: customerNumber,
+                contact: {
+                    name: contactName,
+                    emailAddress: contactEmail,
+                    phoneNumber: contactPhone
+                },
+                business: {
+                    name: businessName,
+                    displayName: businessDisplayName || businessName,
+                    domain: domain,
+                    emailAddress: businessEmail,
+                    phoneNumber: contactPhone,
+                    kvkNumber: businessKvk,
+                    vatNumber: businessVat.toUpperCase(),
+                    address: {
+                        street: addressStreet,
+                        houseNumber: addressNumber,
+                        postalCode: addressPostal.toUpperCase(),
+                        city: addressCity
+                    }
+                }
+            };
+
+            const response = await fetch(`${config.apiUrl}/customers`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Basic ${basicAuthHeader}`
+                },
+                body: JSON.stringify(customer)
+            });
+
+            if (!response.ok) throw new Error('Fout bij opslaan van klant');
+            savedCustomer = await response.json();
         }
 
-        const savedCustomer = await response.json();
-
         // Close modal
+        editingCustomer = null;
         document.getElementById('customerModal').classList.add('hidden');
         document.getElementById('customerForm').reset();
 
@@ -437,7 +536,7 @@ async function saveCustomer() {
         // Display customer info
         displayCustomer(savedCustomer);
 
-        showToast('✅ Klant succesvol aangemaakt!', 'success');
+        showToast(savedCustomer.customerNumber ? `✅ Klant bijgewerkt!` : '✅ Klant succesvol aangemaakt!', 'success');
 
     } catch (error) {
         console.error('Error saving customer:', error);
@@ -538,6 +637,14 @@ function displayCustomer(customer) {
                     class="flex-1 py-3 px-4 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-colors font-medium">
                 <i class="fas fa-plus mr-2"></i>Nieuwe klant aanmaken
             </button>
+            <button onclick="editCurrentCustomer()"
+                    class="py-3 px-4 bg-yellow-100 hover:bg-yellow-200 text-yellow-700 rounded-lg transition-colors font-medium">
+                <i class="fas fa-pen mr-2"></i>Wijzig klant
+            </button>
+            <button onclick="closeCurrentCustomer()" 
+                    class="py-3 px-4 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition-colors font-medium">
+                <i class="fas fa-times mr-2"></i>Sluit klant
+            </button>
         </div>
     `;
 }
@@ -547,8 +654,49 @@ function viewPriceList() {
     switchIntakeView('pricelist');
 }
 
+// Close the current customer and return to empty state
+function closeCurrentCustomer() {
+    if (!confirm('Weet je zeker dat je de huidige klant wilt sluiten? Niet-opgeslagen wijzigingen gaan verloren.')) {
+        return;
+    }
+
+    // Clear all session data for this intake
+    sessionStorage.removeItem('intakeCustomer');
+    sessionStorage.removeItem('intakeId');
+    sessionStorage.removeItem('intakeNotes');
+    sessionStorage.removeItem('intakeQuote');
+    sessionStorage.removeItem('intakeFollowUp');
+
+    // Clear note fields
+    const fields = ['quickNotes', 'painPoints', 'currentSituation', 'desiredOutcome'];
+    fields.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+
+    // Reset quote
+    quoteItems = [];
+    updateQuoteTotal();
+
+    // Hide customer info and show empty state
+    document.getElementById('customerInfo').classList.add('hidden');
+    document.getElementById('emptyState').classList.remove('hidden');
+
+    // Switch back to customers view
+    switchIntakeView('customers');
+}
+
 // Initialize page
 document.addEventListener('DOMContentLoaded', function() {
+    // Close intake search dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+        const searchInput = document.getElementById('openIntakeCustomerNumber');
+        const resultsDiv = document.getElementById('intakeSearchResults');
+        if (resultsDiv && searchInput && !searchInput.contains(e.target) && !resultsDiv.contains(e.target)) {
+            resultsDiv.classList.add('hidden');
+        }
+    });
+
     // Check session
     checkIntakeSession();
 
@@ -936,6 +1084,7 @@ function addToQuote(serviceId) {
     } else {
         quoteItems.push({
             id: service.id,
+            name: service.name,
             description: service.description,
             category: service.category,
             unitPrice: service.unitPrice,
@@ -1180,8 +1329,17 @@ async function downloadIntakeQuotePdf(validUntil, extraNotes) {
                 const price = item.customPrice || item.unitPrice;
                 const lineAmount = item.quantity * price;
 
+                const titleText = item.name || item.description || '';
+                const descriptionText = item.name && item.description ? item.description : '';
+                const descriptionCell = descriptionText
+                    ? [
+                        { text: titleText, fontSize: 10, bold: false },
+                        { text: descriptionText, fontSize: 8, color: '#6b7280', margin: [0, 2, 0, 0] }
+                    ]
+                    : { text: titleText, fontSize: 10 };
+
                 return [
-                    { text: item.description, fontSize: 10 },
+                    descriptionCell,
                     { text: String(item.quantity), fontSize: 10, alignment: 'right' },
                     { text: formatCurrency(price), fontSize: 10, alignment: 'right' },
                     { text: '21%', fontSize: 10, alignment: 'right' },
@@ -1500,6 +1658,86 @@ function showToast(message, type = 'info') {
 
 // ==================== INTAKE DATA MANAGEMENT (COSMOS DB) ====================
 
+// Customer search for "Bestaande Intake Openen"
+let intakeSearchTimeout = null;
+
+async function searchIntakeCustomers() {
+    const input = document.getElementById('openIntakeCustomerNumber');
+    const resultsDiv = document.getElementById('intakeSearchResults');
+    const query = input.value.trim().toLowerCase();
+
+    clearTimeout(intakeSearchTimeout);
+
+    if (!query) {
+        resultsDiv.classList.add('hidden');
+        resultsDiv.innerHTML = '';
+        return;
+    }
+
+    resultsDiv.innerHTML = `<div class="px-4 py-3 text-sm text-gray-400 flex items-center gap-2"><i class="fas fa-spinner fa-spin"></i>Zoeken...</div>`;
+    resultsDiv.classList.remove('hidden');
+
+    intakeSearchTimeout = setTimeout(async () => {
+        try {
+            const config = getAppConfig();
+            const basicAuthHeader = btoa(`${config.username}:${config.password}`);
+
+            const response = await fetch(`${config.apiUrl}/customers`, {
+                method: 'GET',
+                headers: { 'Authorization': `Basic ${basicAuthHeader}` }
+            });
+
+            if (!response.ok) return;
+
+            const customers = await response.json();
+            const matches = customers.filter(c => {
+                const num = (c.customerNumber || '').toLowerCase();
+                const name = (c.business?.displayName || c.business?.name || '').toLowerCase();
+                const contact = (c.contact?.name || '').toLowerCase();
+                return num.includes(query) || name.includes(query) || contact.includes(query);
+            });
+
+            if (matches.length === 0) {
+                resultsDiv.innerHTML = `<div class="px-4 py-3 text-sm text-gray-500 italic">Geen klanten gevonden voor "${input.value}"</div>`;
+            } else {
+                resultsDiv.innerHTML = matches.map(c => {
+                    const displayName = c.business?.displayName || c.business?.name || 'Onbekend';
+                    const num = c.customerNumber || '';
+                    const contact = c.contact?.name ? `<div class="text-xs text-gray-400 mt-0.5">${c.contact.name}</div>` : '';
+                    return `<button type="button"
+                        onmousedown="selectIntakeCustomer('${num}')"
+                        class="w-full text-left px-4 py-3 hover:bg-blue-50 border-b border-gray-100 last:border-0 transition-colors">
+                        <div class="font-medium text-gray-800">${displayName}</div>
+                        <div class="text-xs text-blue-600 font-mono mt-0.5">${num}</div>
+                        ${contact}
+                    </button>`;
+                }).join('');
+            }
+            resultsDiv.classList.remove('hidden');
+        } catch (e) {
+            console.error('Error searching customers:', e);
+        }
+    }, 250);
+}
+
+function selectIntakeCustomer(customerNumber) {
+    const input = document.getElementById('openIntakeCustomerNumber');
+    const resultsDiv = document.getElementById('intakeSearchResults');
+    input.value = customerNumber;
+    resultsDiv.classList.add('hidden');
+    resultsDiv.innerHTML = '';
+    openExistingIntake();
+}
+
+function handleIntakeSearchKeydown(event) {
+    if (event.key === 'Escape') {
+        document.getElementById('intakeSearchResults').classList.add('hidden');
+    } else if (event.key === 'Enter') {
+        document.getElementById('intakeSearchResults').classList.add('hidden');
+        openExistingIntake();
+    }
+}
+
 // Open existing intake by customer number
 async function openExistingIntake() {
     const customerNumberInput = document.getElementById('openIntakeCustomerNumber');
@@ -1756,6 +1994,19 @@ async function saveIntakeToCosmosDB(isAutoSave = false) {
                 },
                 body: JSON.stringify(intakeData)
             });
+
+            // If the intake no longer exists on the server, create a new one
+            if (response.status === 404) {
+                sessionStorage.removeItem('intakeId');
+                response = await fetch(`${config.apiUrl}/customers/${customerNumber}/intake`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Basic ${basicAuthHeader}`
+                    },
+                    body: JSON.stringify(intakeData)
+                });
+            }
         } else {
             // Create new intake
             response = await fetch(`${config.apiUrl}/customers/${customerNumber}/intake`, {

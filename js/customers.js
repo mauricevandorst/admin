@@ -166,6 +166,7 @@ function getCustomerForm(customer = null) {
     return `
         <div class="space-y-6">
             <input type="hidden" id="customerId" value="${customerId}">
+            <input type="hidden" id="customerNumber" value="${c.customerNumber || ''}">
 
             <!-- Progress Indicator -->
             <div class="mb-4">
@@ -489,8 +490,10 @@ function getCustomerForm(customer = null) {
 }
 
 function getCustomerData() {
+    const customerNumber = document.getElementById('customerNumber').value.trim();
     return {
         customerId: document.getElementById('customerId').value.trim(),
+        ...(customerNumber ? { customerNumber } : {}),
         contact: {
             name: document.getElementById('contactName').value.trim(),
             emailAddress: document.getElementById('contactEmail').value.trim(),

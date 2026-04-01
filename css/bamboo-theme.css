@@ -177,10 +177,32 @@ nav .fa-user-cog {
 }
 
 #mobileMenu.menu-open {
-    max-height: 600px;
+    max-height: 70vh;
+    overflow-y: auto;
+    overflow-x: hidden;
     opacity: 1;
     margin-top: 1rem;
     pointer-events: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Mobile menu scrollbar styling */
+#mobileMenu.menu-open::-webkit-scrollbar {
+    width: 6px;
+}
+
+#mobileMenu.menu-open::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 3px;
+}
+
+#mobileMenu.menu-open::-webkit-scrollbar-thumb {
+    background: rgba(124, 179, 66, 0.4);
+    border-radius: 3px;
+}
+
+#mobileMenu.menu-open::-webkit-scrollbar-thumb:hover {
+    background: rgba(124, 179, 66, 0.6);
 }
 
 /* Premium Buttons */

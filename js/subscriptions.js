@@ -211,7 +211,16 @@ function renderSubscriptionsTable() {
                                 const currentDiscount = billingFrequency === 'quarterly' ? (plan?.quarterlyDiscount || 0) :
                                                       billingFrequency === 'halfyearly' ? (plan?.halfyearlyDiscount || 0) :
                                                       billingFrequency === 'yearly' ? (plan?.yearlyDiscount || 0) : 0;
-                                return currentDiscount > 0 ? `<span class="text-orange-600 font-medium ml-1">-${currentDiscount}%</span>` : '';
+                                if (currentDiscount > 0) {
+                                    // Bereken kortingsbedrag
+                                    const monthsInPeriod = billingFrequency === 'quarterly' ? 3 :
+                                                          billingFrequency === 'halfyearly' ? 6 :
+                                                          billingFrequency === 'yearly' ? 12 : 1;
+                                    const baseAmount = sub.monthlyPrice * monthsInPeriod;
+                                    const discountAmount = baseAmount * (currentDiscount / 100);
+                                    return `<span class="text-orange-600 font-medium ml-1">-${currentDiscount}% (${formatCurrency(discountAmount)})</span>`;
+                                }
+                                return '';
                             })()}
                         </div>
                     </td>
@@ -554,7 +563,9 @@ function updateBillingAmount() {
         // Show discount information if applicable
         if (discountAmount > 0) {
             const discountPercentage = discounts[frequency] || 0;
-            displayText += `<div class="text-xs text-orange-600 mt-1"><i class="fas fa-tag"></i> ${discountPercentage}% plankorting: -${formatCurrency(discountAmount)} (van ${formatCurrency(baseAmount)})</div>`;
+            const discountAmountInclVat = Math.round(discountAmount * (1 + vatPercentage / 100) * 100) / 100;
+            displayText += `<div class="text-xs text-orange-600 mt-1"><i class="fas fa-tag"></i> ${discountPercentage}% plankorting: -${formatCurrency(discountAmount)} ex. BTW / -${formatCurrency(discountAmountInclVat)} incl. BTW</div>`;
+            displayText += `<div class="text-xs text-gray-500 ml-4">Prijs zonder korting: ${formatCurrency(baseAmount)} ex. BTW</div>`;
         }
 
         displayText += `</div>`;

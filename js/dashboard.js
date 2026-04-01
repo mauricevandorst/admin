@@ -4,11 +4,95 @@ async function loadDashboard() {
         // Gebruik de geoptimaliseerde dashboard API endpoint
         const dashboardData = await apiRequest('/dashboard');
 
-        // Render dashboard met API data
-        renderDashboardFromAPI(dashboardData);
+        // Haal ook de facturen op om het correcte openstaande bedrag te berekenen
+        // (API openTotal houdt geen rekening met deels betaalde facturen)
+        const invoices = await getAll('invoices');
+
+        // Bereken het werkelijke openstaande bedrag
+        const actualOpenStats = calculateActualOpenAmount(invoices);
+
+        // Render dashboard met API data en gecorrigeerde openstaande bedragen
+        renderDashboardFromAPI(dashboardData, actualOpenStats);
     } catch (error) {
         showError(error.message);
     }
+}
+
+// Bereken het werkelijke openstaande bedrag rekening houdend met betalingen
+function calculateActualOpenAmount(invoices) {
+    const safeInvoices = invoices || [];
+    const now = new Date();
+    const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const ninetyDaysFromNow = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
+
+    // Build a map of total paid per invoice number from payments within invoices
+    const paymentsByInvoice = new Map();
+    safeInvoices.forEach(invoice => {
+        if (invoice.payments && invoice.payments.length > 0) {
+            const totalPaid = invoice.payments.reduce((sum, p) => sum + (p.amount || 0), 0);
+            paymentsByInvoice.set(invoice.invoiceNumber, totalPaid);
+        }
+    });
+
+    let openAmount = 0;
+    let openCount = 0;
+    let overdueAmount = 0;
+    let overdueCount = 0;
+    let incomingNext30Days = 0;
+    let incomingNext90Days = 0;
+    let partialAmountPaid = 0;
+
+    safeInvoices.forEach((invoice) => {
+        const invoiceTotal = invoice.totalAmount || 0;
+        const paidForInvoice = paymentsByInvoice.get(invoice.invoiceNumber) || 0;
+        const remainingForInvoice = Math.max(invoiceTotal - paidForInvoice, 0);
+        const dueDate = invoice.dueDate ? new Date(invoice.dueDate) : null;
+        const isOverdue = dueDate instanceof Date && !Number.isNaN(dueDate.getTime()) && dueDate < now;
+
+        // Skip volledig betaalde en geannuleerde facturen
+        if (remainingForInvoice === 0 || invoice.status === 'cancelled' || invoice.status === 'paid') {
+            return;
+        }
+
+        // Tel deelbetaling mee als ontvangen
+        if (paidForInvoice > 0) {
+            partialAmountPaid += paidForInvoice;
+        }
+
+        if (isOverdue) {
+            overdueAmount += remainingForInvoice;
+            overdueCount += 1;
+        } else {
+            openAmount += remainingForInvoice;
+            openCount += 1;
+
+            // Bereken inkomend geld op basis van vervaldatum
+            if (dueDate) {
+                if (dueDate <= thirtyDaysFromNow) {
+                    incomingNext30Days += remainingForInvoice;
+                }
+                if (dueDate <= ninetyDaysFromNow) {
+                    incomingNext90Days += remainingForInvoice;
+                }
+            } else {
+                // Facturen zonder vervaldatum tellen ook mee als inkomend
+                incomingNext30Days += remainingForInvoice;
+                incomingNext90Days += remainingForInvoice;
+            }
+        }
+    });
+
+    return {
+        openAmount: openAmount,
+        openCount: openCount,
+        overdueAmount: overdueAmount,
+        overdueCount: overdueCount,
+        totalOpenAmount: openAmount + overdueAmount,
+        totalOpenCount: openCount + overdueCount,
+        incomingNext30Days: incomingNext30Days,
+        incomingNext90Days: incomingNext90Days,
+        partialAmountPaid: partialAmountPaid
+    };
 }
 
 function calculateStats(customers, invoices, payments, subscriptions, orders) {
@@ -237,9 +321,22 @@ function calculateStats(customers, invoices, payments, subscriptions, orders) {
 }
 
 // Nieuwe functie: Render dashboard met API data
-function renderDashboardFromAPI(data) {
+function renderDashboardFromAPI(data, actualOpenStats) {
     const content = document.getElementById('content');
     const now = new Date();
+
+    // Gebruik de werkelijke openstaande bedragen indien beschikbaar, anders fallback naar API data
+    const correctedOpenTotal = actualOpenStats ? actualOpenStats.totalOpenAmount : data.invoices.openTotal;
+    const correctedOpenCount = actualOpenStats ? actualOpenStats.totalOpenCount : data.invoices.openCount;
+    const correctedOverdueTotal = actualOpenStats ? actualOpenStats.overdueAmount : data.invoices.overdueTotal;
+    const correctedOverdueCount = actualOpenStats ? actualOpenStats.overdueCount : data.invoices.overdueCount;
+    const correctedPendingTotal = actualOpenStats ? actualOpenStats.openAmount : (data.invoices.openTotal - data.invoices.overdueTotal);
+    const correctedPendingCount = actualOpenStats ? actualOpenStats.openCount : (data.invoices.openCount - data.invoices.overdueCount);
+    const correctedIncoming30Days = actualOpenStats ? actualOpenStats.incomingNext30Days : (data.cashflow?.incomingNext30Days || 0);
+    const correctedIncoming90Days = actualOpenStats ? actualOpenStats.incomingNext90Days : (data.expectedRevenue?.next90Days || 0);
+    const correctedNetCashflow = correctedIncoming30Days - correctedOverdueTotal;
+    // Ontvangen bedrag inclusief deelbetalingen op open facturen
+    const totalPaidAmount = data.invoices.paidTotal + (actualOpenStats?.partialAmountPaid || 0);
 
     // Map API data naar stats object (voor compatibiliteit met bestaande render functies)
     const stats = {
@@ -247,14 +344,14 @@ function renderDashboardFromAPI(data) {
         totalInvoices: data.invoices.totalCount,
         paidInvoices: data.invoices.paidCount,
         partiallyPaidInvoices: 0, // Niet beschikbaar in API
-        pendingInvoices: data.invoices.openCount,
-        overdueInvoices: data.invoices.overdueCount,
-        overdueInvoicesAmount: data.invoices.overdueTotal,
+        pendingInvoices: correctedPendingCount,
+        overdueInvoices: correctedOverdueCount,
+        overdueInvoicesAmount: correctedOverdueTotal,
         invoicesDueSoon: 0, // TODO: kan toegevoegd worden aan API
         invoicesDueSoonAmount: 0,
-        totalInvoiceAmount: data.invoices.paidTotal + data.invoices.openTotal,
-        paidAmount: data.invoices.paidTotal,
-        pendingAmount: data.invoices.openTotal,
+        totalInvoiceAmount: totalPaidAmount + correctedOpenTotal,
+        paidAmount: totalPaidAmount,
+        pendingAmount: correctedOpenTotal,
         totalPayments: 0,
         totalSubscriptions: data.subscriptions.activeCount,
         activeSubscriptions: data.subscriptions.activeCount,
@@ -263,12 +360,15 @@ function renderDashboardFromAPI(data) {
         monthlyRecurringRevenue: data.subscriptions.monthlyRecurringRevenue,
         annualRecurringRevenue: data.subscriptions.annualRecurringRevenue,
         averageRevenuePerSubscription: data.subscriptions.averageRevenuePerSubscription,
-        collectionRate: data.invoices.paidTotal > 0 && (data.invoices.paidTotal + data.invoices.openTotal) > 0
-            ? (data.invoices.paidTotal / (data.invoices.paidTotal + data.invoices.openTotal)) * 100
+        collectionRate: (totalPaidAmount + correctedOpenTotal) > 0
+            ? (totalPaidAmount / (totalPaidAmount + correctedOpenTotal)) * 100
+            : 0,
+        paidInvoiceRate: data.invoices.totalCount > 0
+            ? (data.invoices.paidCount / data.invoices.totalCount) * 100
             : 0,
         activeSubscriptionRate: 100,
-        overduePressure: data.invoices.openCount > 0
-            ? (data.invoices.overdueCount / data.invoices.openCount) * 100
+        overduePressure: correctedOpenCount > 0
+            ? (correctedOverdueCount / correctedOpenCount) * 100
             : 0,
         totalOrders: 0,
         openOrders: 0,
@@ -327,10 +427,10 @@ function renderDashboardFromAPI(data) {
             <!-- KPI strip met verbeterde metrics -->
             <div class="kpi-strip">
                 ${createCompactKpiCard('Klanten', data.customers.totalCount, "switchTab('customers')", data.customers.activeCount + ' met abonnement', 'fa-users')}
-                ${createCompactKpiCard('Facturen', data.invoices.totalCount, "switchTab('invoices')", data.invoices.openCount + ' open', 'fa-file-invoice')}
-                ${createCompactKpiCard('Verwachte omzet (30d)', formatCurrency(data.expectedRevenue?.next30Days || 0), "switchTab('subscriptions')", 'Komende maand', 'fa-calendar-check')}
-                ${createCompactKpiCard('Maandelijkse omzet', formatCurrency(data.subscriptions.monthlyRecurringRevenue), "switchTab('subscriptions')", 'Jaarlijks: ' + formatCurrency(data.subscriptions.annualRecurringRevenue), 'fa-chart-line')}
-                ${createCompactKpiCard('Abonnementen', data.subscriptions.activeCount, "switchTab('subscriptions')", 'Ø ' + formatCurrency(data.subscriptions.averageRevenuePerSubscription) + '/maand', 'fa-sync')}
+                ${createCompactKpiCard('Facturen', data.invoices.totalCount, "switchTab('invoices')", correctedOpenCount + ' open', 'fa-file-invoice')}
+                ${createCompactKpiCard('Verwacht komende maand', formatCurrency(data.expectedRevenue?.next30Days || 0), "switchTab('subscriptions')", 'Uit abonnementen', 'fa-calendar-check')}
+                ${createCompactKpiCard('Maandinkomen', formatCurrency(data.subscriptions.monthlyRecurringRevenue), "switchTab('subscriptions')", 'Jaar: ' + formatCurrency(data.subscriptions.annualRecurringRevenue), 'fa-chart-line')}
+                ${createCompactKpiCard('Abonnementen', data.subscriptions.activeCount, "switchTab('subscriptions')", 'Gemiddeld ' + formatCurrency(data.subscriptions.averageRevenuePerSubscription) + '/mnd', 'fa-sync')}
             </div>
 
             <!-- Alerts (verbeterd met API data) -->
@@ -348,98 +448,93 @@ function renderDashboardFromAPI(data) {
                     <div class="financial-summary">
                         <div class="fin-item">
                             <p class="fin-label">Ontvangen</p>
-                            <p class="fin-value" style="color:#15803d">${formatCurrency(data.invoices.paidTotal)}</p>
+                            <p class="fin-value" style="color:#15803d">${formatCurrency(totalPaidAmount)}</p>
                             <p class="fin-note">${data.invoices.paidCount} volledig betaalde facturen</p>
                         </div>
                         <div class="fin-item">
                             <p class="fin-label">Openstaand</p>
-                            <p class="fin-value" style="color:#b45309">${formatCurrency(data.invoices.openTotal)}</p>
-                            <p class="fin-note">${data.invoices.openCount} openstaande facturen</p>
+                            <p class="fin-value" style="color:#b45309">${formatCurrency(correctedOpenTotal)}</p>
+                            <p class="fin-note">${correctedOpenCount} openstaande facturen</p>
                         </div>
                         <div class="fin-item">
                             <p class="fin-label">Achterstallig</p>
-                            <p class="fin-value" style="color:#dc2626">${formatCurrency(data.invoices.overdueTotal)}</p>
-                            <p class="fin-note">${data.invoices.overdueCount} achterstallige facturen</p>
+                            <p class="fin-value" style="color:#dc2626">${formatCurrency(correctedOverdueTotal)}</p>
+                            <p class="fin-note">${correctedOverdueCount} achterstallige facturen</p>
                         </div>
                         <div class="fin-item">
                             <p class="fin-label">Verwacht (30 dagen)</p>
-                            <p class="fin-value" style="color:#059669">${formatCurrency(data.expectedRevenue?.next30Days || 0)}</p>
-                            <p class="fin-note">Verwachte inkomsten komende maand</p>
+                            <p class="fin-value" style="color:#059669">${formatCurrency(correctedIncoming30Days)}</p>
+                            <p class="fin-note">Openstaande facturen komende 30 dagen</p>
                         </div>
                         <div class="fin-item">
-                            <p class="fin-label">Maandelijkse omzet</p>
+                            <p class="fin-label">Vaste maandinkomen</p>
                             <p class="fin-value" style="color:#1d4ed8">${formatCurrency(data.subscriptions.monthlyRecurringRevenue)}</p>
                             <p class="fin-note">${data.subscriptions.activeCount} actieve abonnementen</p>
                         </div>
-                        <div class="fin-item">
-                            <p class="fin-label">Jaarlijkse omzet</p>
-                            <p class="fin-value" style="color:#7c3aed">${formatCurrency(data.subscriptions.annualRecurringRevenue)}</p>
-                            <p class="fin-note">Projectie op jaarbasis</p>
-                        </div>
                     </div>
                     <div class="mt-4 space-y-2">
-                        ${createMeterRow('Betaalde facturen', stats.collectionRate, 'success')}
+                        ${createMeterRow('Betaalde facturen', stats.paidInvoiceRate, 'success')}
                         ${createMeterRow('Achterstallige facturen', stats.overduePressure, 'warning')}
                     </div>
                 </div>
 
-                <!-- Cashflow & Verwachtingen -->
+                <!-- Abonnementen overzicht -->
                 <div class="card-compact">
                     <div class="card-compact-header">
-                        <span>Cashflow & Verwachtingen</span>
+                        <span>Abonnementen overzicht</span>
                         <button onclick="switchTab('subscriptions')" class="link-action">Bekijk abonnementen →</button>
                     </div>
                     <div class="financial-summary">
                         <div class="fin-item">
-                            <p class="fin-label">Netto Cashflow (30d)</p>
-                            <p class="fin-value" style="color:${(data.cashflow?.netExpectedCashflow || 0) >= 0 ? '#15803d' : '#dc2626'}">${formatCurrency(data.cashflow?.netExpectedCashflow || 0)}</p>
-                            <p class="fin-note">Inkomend minus achterstallig</p>
+                            <p class="fin-label">Vaste maandinkomen</p>
+                            <p class="fin-value" style="color:#15803d">${formatCurrency(data.subscriptions.monthlyRecurringRevenue)}</p>
+                            <p class="fin-note">${data.subscriptions.activeCount} actieve abonnementen</p>
                         </div>
                         <div class="fin-item">
-                            <p class="fin-label">Inkomend (30d)</p>
-                            <p class="fin-value" style="color:#059669">${formatCurrency(data.cashflow?.incomingNext30Days || 0)}</p>
-                            <p class="fin-note">Verwachte betalingen</p>
+                            <p class="fin-label">Vaste jaarinkomen</p>
+                            <p class="fin-value" style="color:#7c3aed">${formatCurrency(data.subscriptions.annualRecurringRevenue)}</p>
+                            <p class="fin-note">Wat de abonnementen dit jaar opleveren</p>
                         </div>
                         <div class="fin-item">
-                            <p class="fin-label">Verwacht (90d)</p>
+                            <p class="fin-label">Verwacht komende maand</p>
+                            <p class="fin-value" style="color:#059669">${formatCurrency(data.expectedRevenue?.next30Days || 0)}</p>
+                            <p class="fin-note">Inkomsten uit abonnementen</p>
+                        </div>
+                        <div class="fin-item">
+                            <p class="fin-label">Verwacht komende 3 maanden</p>
                             <p class="fin-value" style="color:#1d4ed8">${formatCurrency(data.expectedRevenue?.next90Days || 0)}</p>
-                            <p class="fin-note">Komende 3 maanden</p>
+                            <p class="fin-note">Inkomsten uit abonnementen</p>
                         </div>
                         <div class="fin-item">
-                            <p class="fin-label">Jaarprojectie</p>
+                            <p class="fin-label">Verwacht dit hele jaar</p>
                             <p class="fin-value" style="color:#7c3aed">${formatCurrency(data.expectedRevenue?.yearlyProjection || 0)}</p>
-                            <p class="fin-note">Geschatte jaaromzet</p>
+                            <p class="fin-note">Schatting op basis van huidige abonnementen</p>
                         </div>
                         <div class="fin-item">
-                            <p class="fin-label">Ø Klantwaarde</p>
-                            <p class="fin-value" style="color:#ea580c">${formatCurrency(data.customerValue?.averageMonthlyValuePerCustomer || 0)}</p>
-                            <p class="fin-note">Per klant per maand</p>
-                        </div>
-                        <div class="fin-item">
-                            <p class="fin-label">Lifetime Value</p>
-                            <p class="fin-value" style="color:#c2410c">${formatCurrency(data.customerValue?.estimatedLifetimeValue || 0)}</p>
-                            <p class="fin-note">Geschatte waarde per klant</p>
+                            <p class="fin-label">Gemiddeld per abonnement</p>
+                            <p class="fin-value" style="color:#ea580c">${formatCurrency(data.subscriptions.averageRevenuePerSubscription)}</p>
+                            <p class="fin-note">Wat een abonnement gemiddeld per maand oplevert</p>
                         </div>
                     </div>
                     <div class="mt-4">
-                        <p class="text-xs font-semibold text-gray-500 mb-2">ACTIEPUNTEN</p>
+                        <p class="text-xs font-semibold text-gray-500 mb-2">WAT MOET ER NOG GEBEUREN</p>
                         <div class="space-y-1 text-xs">
-                            ${(data.cashflow?.overdueImpact || 0) > 0 ? `
-                                <div class="flex items-center gap-2 text-red-600">
-                                    <i class="fas fa-exclamation-triangle"></i>
-                                    <span>Achterstallige betalingen: ${formatCurrency(data.cashflow.overdueImpact)}</span>
-                                </div>
-                            ` : ''}
-                            ${(data.customerValue?.potentialUpsellCustomers || 0) > 0 ? `
-                                <div class="flex items-center gap-2 text-blue-600">
-                                    <i class="fas fa-arrow-up"></i>
-                                    <span>${data.customerValue.potentialUpsellCustomers} klanten zonder abonnement</span>
+                            ${(data.subscriptions.overdueSubscriptions?.count || 0) > 0 ? `
+                                <div class="flex items-center justify-between gap-2 p-2 bg-red-50 rounded border-l-2 border-red-500">
+                                    <span class="text-red-700"><i class="fas fa-exclamation-circle mr-1"></i>${data.subscriptions.overdueSubscriptions.count} abonnement${data.subscriptions.overdueSubscriptions.count > 1 ? 'en' : ''} nog te factureren (${formatCurrency(data.subscriptions.overdueSubscriptions.totalAmount)})</span>
+                                    <button onclick="switchTab('subscriptions')" class="text-xs px-2 py-0.5 bg-red-100 text-red-700 rounded font-medium shrink-0">Bekijk →</button>
                                 </div>
                             ` : ''}
                             ${(data.subscriptions.upcomingPayments?.count || 0) > 0 ? `
-                                <div class="flex items-center gap-2 text-green-600">
-                                    <i class="fas fa-calendar-check"></i>
-                                    <span>${data.subscriptions.upcomingPayments.count} betalingen komende week</span>
+                                <div class="flex items-center justify-between gap-2 p-2 bg-blue-50 rounded border-l-2 border-blue-500">
+                                    <span class="text-blue-700"><i class="fas fa-calendar-check mr-1"></i>${data.subscriptions.upcomingPayments.count} abonnement${data.subscriptions.upcomingPayments.count > 1 ? 'en' : ''} binnenkort te factureren (${formatCurrency(data.subscriptions.upcomingPayments.totalAmount)})</span>
+                                    <button onclick="switchTab('subscriptions')" class="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded font-medium shrink-0">Bekijk →</button>
+                                </div>
+                            ` : ''}
+                            ${(data.subscriptions.overdueSubscriptions?.count || 0) === 0 && (data.subscriptions.upcomingPayments?.count || 0) === 0 ? `
+                                <div class="flex items-center gap-2 text-green-600 p-2">
+                                    <i class="fas fa-check-circle"></i>
+                                    <span>Alle abonnementen zijn up-to-date</span>
                                 </div>
                             ` : ''}
                         </div>
@@ -457,11 +552,15 @@ function renderDashboardFromAPI(data) {
                     </div>
                     <div class="space-y-3">
                         <div class="flex justify-between items-center">
-                            <span class="text-sm text-gray-600">Huidige MRR</span>
+                            <span class="text-sm text-gray-600">Maandinkomen (nu)</span>
                             <span class="font-bold text-green-600">${formatCurrency(data.subscriptions.monthlyRecurringRevenue)}</span>
                         </div>
                         <div class="flex justify-between items-center">
-                            <span class="text-sm text-gray-600">Verwacht deze maand</span>
+                            <span class="text-sm text-gray-600">Jaarinkomen (schatting)</span>
+                            <span class="font-bold text-purple-600">${formatCurrency(data.subscriptions.annualRecurringRevenue)}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-600">Verwacht komende maand</span>
                             <span class="font-bold text-blue-600">${formatCurrency(data.expectedRevenue?.next30Days || 0)}</span>
                         </div>
                         <div class="flex justify-between items-center">
@@ -469,7 +568,7 @@ function renderDashboardFromAPI(data) {
                             <span class="font-bold text-orange-600">${formatCurrency((data.customerValue?.potentialUpsellCustomers || 0) * (data.customerValue?.averageMonthlyValuePerCustomer || 0))}</span>
                         </div>
                         <div class="pt-2 border-t">
-                            <div class="text-xs text-gray-500 mb-1">MRR groei dit jaar</div>
+                            <div class="text-xs text-gray-500 mb-1">Groei dit jaar</div>
                             <div class="w-full bg-gray-200 rounded-full h-2">
                                 <div class="bg-gradient-to-r from-green-400 to-green-600 h-2 rounded-full" style="width: 65%"></div>
                             </div>
@@ -517,7 +616,7 @@ function renderDashboardFromAPI(data) {
                     <div class="space-y-3">
                         <div class="flex justify-between items-center">
                             <span class="text-sm text-gray-600">Achterstallig bedrag</span>
-                            <span class="font-bold text-red-600">${formatCurrency(data.invoices.overdueTotal)}</span>
+                            <span class="font-bold text-red-600">${formatCurrency(correctedOverdueTotal)}</span>
                         </div>
                         <div class="flex justify-between items-center">
                             <span class="text-sm text-gray-600">Risico percentage</span>
@@ -555,7 +654,7 @@ function renderDashboardFromAPI(data) {
             </div>
 
             <!-- Klanten inzicht -->
-            <div class="card-compact">
+            <div class="card-compact mt-4">
                 <div class="card-compact-header">
                     <span>Klanten Overzicht</span>
                     <button onclick="switchTab('customers')" class="link-action">Bekijk klanten →</button>
@@ -703,7 +802,7 @@ function renderSubscriptionByPlanBreakdown(byPlan) {
             ${byPlan.map(plan => {
                 const revenuePercentage = totalRevenue > 0 ? (plan.monthlyRevenue / totalRevenue * 100) : 0;
                 return `
-                    <div class="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                    <div class="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer" onclick="switchTab('subscription-plans')">
                         <div class="flex items-start justify-between mb-2">
                             <div class="flex-1">
                                 <p class="text-sm font-semibold text-gray-800">${plan.planName}</p>
