@@ -41,6 +41,8 @@ function calculateActualOpenAmount(invoices) {
     let incomingNext30Days = 0;
     let incomingNext90Days = 0;
     let partialAmountPaid = 0;
+    let totalThisYear = 0;
+    const currentYear = now.getFullYear();
 
     safeInvoices.forEach((invoice) => {
         const invoiceTotal = invoice.totalAmount || 0;
@@ -48,6 +50,14 @@ function calculateActualOpenAmount(invoices) {
         const remainingForInvoice = Math.max(invoiceTotal - paidForInvoice, 0);
         const dueDate = invoice.dueDate ? new Date(invoice.dueDate) : null;
         const isOverdue = dueDate instanceof Date && !Number.isNaN(dueDate.getTime()) && dueDate < now;
+
+        // Tel mee in het jaartotaal (betaald + onbetaald, niet geannuleerd)
+        if (invoice.status !== 'cancelled' && invoice.invoiceDate) {
+            const invoiceYear = new Date(invoice.invoiceDate).getFullYear();
+            if (invoiceYear === currentYear) {
+                totalThisYear += invoiceTotal;
+            }
+        }
 
         // Skip volledig betaalde en geannuleerde facturen
         if (remainingForInvoice === 0 || invoice.status === 'cancelled' || invoice.status === 'paid') {
@@ -91,7 +101,8 @@ function calculateActualOpenAmount(invoices) {
         totalOpenCount: openCount + overdueCount,
         incomingNext30Days: incomingNext30Days,
         incomingNext90Days: incomingNext90Days,
-        partialAmountPaid: partialAmountPaid
+        partialAmountPaid: partialAmountPaid,
+        totalThisYear: totalThisYear
     };
 }
 
@@ -452,6 +463,11 @@ function renderDashboardFromAPI(data, actualOpenStats) {
                             <p class="fin-note">${data.invoices.paidCount} volledig betaalde facturen</p>
                         </div>
                         <div class="fin-item">
+                            <p class="fin-label">Verwacht (dit jaar)</p>
+                            <p class="fin-value" style="color:#059669">${formatCurrency(actualOpenStats?.totalThisYear || 0)}</p>
+                            <p class="fin-note">Alle facturen van ${new Date().getFullYear()} bij elkaar</p>
+                        </div>
+                        <div class="fin-item">
                             <p class="fin-label">Openstaand</p>
                             <p class="fin-value" style="color:#b45309">${formatCurrency(correctedOpenTotal)}</p>
                             <p class="fin-note">${correctedOpenCount} openstaande facturen</p>
@@ -460,11 +476,6 @@ function renderDashboardFromAPI(data, actualOpenStats) {
                             <p class="fin-label">Achterstallig</p>
                             <p class="fin-value" style="color:#dc2626">${formatCurrency(correctedOverdueTotal)}</p>
                             <p class="fin-note">${correctedOverdueCount} achterstallige facturen</p>
-                        </div>
-                        <div class="fin-item">
-                            <p class="fin-label">Verwacht (30 dagen)</p>
-                            <p class="fin-value" style="color:#059669">${formatCurrency(correctedIncoming30Days)}</p>
-                            <p class="fin-note">Openstaande facturen komende 30 dagen</p>
                         </div>
                         <div class="fin-item">
                             <p class="fin-label">Vaste maandinkomen</p>
