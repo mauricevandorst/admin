@@ -1,17 +1,46 @@
-// Session management
+﻿// Session management
 const SESSION_KEY = 'ricedesk_session';
+const SESSION_MAX_AGE_MS  = 8 * 60 * 60 * 1000;  // 8 uur absoluut maximum
+const SESSION_IDLE_MS     = 30 * 60 * 1000;       // 30 minuten inactiviteit
+
+let _idleTimer = null;
+
+function _resetIdleTimer() {
+    clearTimeout(_idleTimer);
+    _idleTimer = setTimeout(() => {
+        if (isLoggedIn()) {
+            alert('Je sessie is verlopen wegens inactiviteit. Je wordt uitgelogd.');
+            handleLogout();
+        }
+    }, SESSION_IDLE_MS);
+}
+
+function _startSessionWatchers() {
+    ['click', 'keydown', 'mousemove', 'touchstart', 'scroll'].forEach(evt =>
+        document.addEventListener(evt, _resetIdleTimer, { passive: true })
+    );
+    _resetIdleTimer();
+}
 
 function getSession() {
     const stored = localStorage.getItem(SESSION_KEY);
     if (!stored) return null;
     try {
-        return JSON.parse(stored);
+        const session = JSON.parse(stored);
+        const now = Date.now();
+        if (session._expiresAt && now > session._expiresAt) {
+            clearSession();
+            return null;
+        }
+        return session;
     } catch (e) {
         return null;
     }
 }
 
 function saveSession(userProfile) {
+    userProfile._loginTime  = Date.now();
+    userProfile._expiresAt  = Date.now() + SESSION_MAX_AGE_MS;
     localStorage.setItem(SESSION_KEY, JSON.stringify(userProfile));
 }
 
@@ -68,7 +97,7 @@ async function handleLogin(event) {
 
     const username = document.getElementById('loginUsername').value.trim();
     const password = document.getElementById('loginPassword').value;
-    const intakeMode = document.getElementById('intakeModeCheckbox')?.checked || false;
+    const dossierMode = document.getElementById('dossierModeCheckbox')?.checked || false;
     const errorEl = document.getElementById('loginError');
     const btn = document.getElementById('loginBtn');
 
@@ -98,18 +127,19 @@ async function handleLogin(event) {
         if (response.ok) {
             const userProfile = await response.json();
 
-            // Add intake mode to session
-            userProfile.intakeMode = intakeMode;
+            // Add dossier mode to session
+            userProfile.dossierMode = dossierMode;
 
             saveSession(userProfile);
 
-            // Redirect based on intake mode
-            if (intakeMode) {
-                window.location.href = 'intake.html';
+            // Redirect based on dossier mode
+            if (dossierMode) {
+                window.location.href = 'dossier.html';
             } else {
                 updateNavUserInfo(userProfile);
                 hideLoginScreen();
                 switchTab('dashboard');
+                _startSessionWatchers();
             }
         } else {
             errorEl.textContent = 'Ongeldige gebruikersnaam of wachtwoord';
@@ -125,29 +155,30 @@ async function handleLogin(event) {
 }
 
 function handleLogout() {
+    clearTimeout(_idleTimer);
     clearSession();
     showLoginScreen();
     document.getElementById('loginUsername').value = '';
     document.getElementById('loginPassword').value = '';
 }
 
-// Switch to intake mode from admin portal
-function switchToIntakeMode() {
+// Switch to dossier mode from admin portal
+function switchToDossierMode() {
     const session = getSession();
     if (!session) {
         alert('Je bent niet ingelogd');
         return;
     }
 
-    // Update session to intake mode
-    session.intakeMode = true;
+    // Update session to dossier mode
+    session.dossierMode = true;
     saveSession(session);
 
-    // Redirect to intake page
-    window.location.href = 'intake.html';
+    // Redirect to dossier page
+    window.location.href = 'dossier.html';
 }
 
-// Switch to admin mode from intake portal (called from intake.html)
+// Switch to admin mode from dossier portal (called from dossier.html)
 function switchToAdminMode() {
     const session = getSession();
     if (!session) {
@@ -157,11 +188,11 @@ function switchToAdminMode() {
     }
 
     // Update session to admin mode
-    session.intakeMode = false;
+    session.dossierMode = false;
     saveSession(session);
 
-    // Clear intake session data
-    sessionStorage.removeItem('intakeCustomer');
+    // Clear dossier session data
+    sessionStorage.removeItem('dossierCustomer');
 
     // Redirect to admin portal
     window.location.href = 'index.html';
@@ -213,6 +244,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateNavUserInfo(session);
         hideLoginScreen();
         switchTab('dashboard');
+        _startSessionWatchers();
     } else {
         showLoginScreen();
     }

@@ -1,12 +1,12 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="nl">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RiceDesk - Intake Modus</title>
+    <title>RiceDesk - Klantendossiers</title>
     <link rel="icon"
-        href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📝</text></svg>">
+        href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🗂️</text></svg>">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
@@ -14,33 +14,33 @@
     <link rel="stylesheet" href="css/bamboo-theme.css">
     <style>
         :root {
-            --intake-primary: #2563eb;
-            --intake-secondary: #3b82f6;
+            --dossier-primary: #2563eb;
+            --dossier-secondary: #3b82f6;
         }
 
-        .intake-nav {
+        .dossier-nav {
             background: white;
             border-bottom: 1px solid #e5e7eb;
             box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         }
 
-        .intake-nav-btn {
+        .dossier-nav-btn {
             color: #64748b;
             background: transparent;
         }
 
-        .intake-nav-btn:hover {
+        .dossier-nav-btn:hover {
             color: #1e40af;
             background: rgba(37, 99, 235, 0.1);
         }
 
-        .intake-nav-btn.active {
+        .dossier-nav-btn.active {
             color: white;
             background: #2563eb;
             box-shadow: 0 2px 4px rgba(37, 99, 235, 0.3);
         }
 
-        .intake-view {
+        .dossier-view {
             animation: fadeIn 0.3s ease-in;
         }
 
@@ -49,14 +49,14 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
-        .intake-card {
+        .dossier-card {
             background: white;
             border-radius: 12px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.05);
             transition: all 0.2s;
         }
 
-        .intake-card:hover {
+        .dossier-card:hover {
             box-shadow: 0 8px 12px rgba(37, 99, 235, 0.15);
         }
 
@@ -186,7 +186,7 @@
         }
 
         /* Mobile Menu Styles */
-        #intakeMobileMenu {
+        #dossierMobileMenu {
             overflow: hidden;
             max-height: 0;
             opacity: 0;
@@ -195,7 +195,7 @@
             transition: max-height 0.3s ease-out, opacity 0.3s ease-out, margin-top 0.3s ease-out;
         }
 
-        #intakeMobileMenu.menu-open {
+        #dossierMobileMenu.menu-open {
             max-height: 70vh;
             overflow-y: auto;
             overflow-x: hidden;
@@ -206,26 +206,26 @@
         }
 
         /* Mobile menu scrollbar styling */
-        #intakeMobileMenu.menu-open::-webkit-scrollbar {
+        #dossierMobileMenu.menu-open::-webkit-scrollbar {
             width: 6px;
         }
 
-        #intakeMobileMenu.menu-open::-webkit-scrollbar-track {
+        #dossierMobileMenu.menu-open::-webkit-scrollbar-track {
             background: rgba(0, 0, 0, 0.05);
             border-radius: 3px;
         }
 
-        #intakeMobileMenu.menu-open::-webkit-scrollbar-thumb {
+        #dossierMobileMenu.menu-open::-webkit-scrollbar-thumb {
             background: rgba(37, 99, 235, 0.4);
             border-radius: 3px;
         }
 
-        #intakeMobileMenu.menu-open::-webkit-scrollbar-thumb:hover {
+        #dossierMobileMenu.menu-open::-webkit-scrollbar-thumb:hover {
             background: rgba(37, 99, 235, 0.6);
         }
 
         /* Fixed-width icons for consistent text alignment in mobile menu */
-        #intakeMobileMenu .intake-nav-btn > i:first-child {
+        #dossierMobileMenu .dossier-nav-btn > i:first-child {
             width: 1.25em;
             text-align: center;
             flex-shrink: 0;
@@ -236,39 +236,39 @@
 
 <body class="bg-gray-50">
     <!-- Navigation -->
-    <nav class="intake-nav">
+    <nav class="dossier-nav">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 py-2.5">
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-6">
-                    <button onclick="switchIntakeView('customers')" class="flex items-center gap-2 hover:opacity-80 transition-opacity" title="Home">
-                        <span class="text-2xl">📝</span>
+                    <button onclick="switchDossierView('customers')" class="flex items-center gap-2 hover:opacity-80 transition-opacity" title="Home">
+                        <span class="text-2xl">🗂️</span>
                         <h1 class="text-xl font-bold text-blue-900">RiceDesk</h1>
                     </button>
 
                     <!-- Nav Tabs -->
                     <div class="hidden md:flex items-center gap-1">
-                        <button onclick="switchIntakeView('customers')" id="nav-customers"
-                                class="intake-nav-btn active px-3 py-1.5 rounded-lg font-medium transition-colors text-sm">
+                        <button onclick="switchDossierView('customers')" id="nav-customers"
+                                class="dossier-nav-btn active px-3 py-1.5 rounded-lg font-medium transition-colors text-sm">
                             <i class="fas fa-users mr-1.5"></i>Klanten
                         </button>
-                        <button onclick="switchIntakeView('pricelist')" id="nav-pricelist"
-                                class="intake-nav-btn px-3 py-1.5 rounded-lg font-medium transition-colors text-sm">
+                        <button onclick="switchDossierView('pricelist')" id="nav-pricelist"
+                                class="dossier-nav-btn px-3 py-1.5 rounded-lg font-medium transition-colors text-sm">
                             <i class="fas fa-tags mr-1.5"></i>Prijslijst
                         </button>
-                        <button onclick="switchIntakeView('maintenance')" id="nav-maintenance"
-                                class="intake-nav-btn px-3 py-1.5 rounded-lg font-medium transition-colors text-sm">
+                        <button onclick="switchDossierView('maintenance')" id="nav-maintenance"
+                                class="dossier-nav-btn px-3 py-1.5 rounded-lg font-medium transition-colors text-sm">
                             <i class="fas fa-tools mr-1.5"></i>Onderhoudsplannen
                         </button>
-                        <button onclick="switchIntakeView('notes')" id="nav-notes"
-                                class="intake-nav-btn px-3 py-1.5 rounded-lg font-medium transition-colors text-sm">
+                        <button onclick="switchDossierView('notes')" id="nav-notes"
+                                class="dossier-nav-btn px-3 py-1.5 rounded-lg font-medium transition-colors text-sm">
                             <i class="fas fa-sticky-note mr-1.5"></i>Notities
                         </button>
-                        <button onclick="switchIntakeView('quote')" id="nav-quote"
-                                class="intake-nav-btn px-3 py-1.5 rounded-lg font-medium transition-colors text-sm">
+                        <button onclick="switchDossierView('quote')" id="nav-quote"
+                                class="dossier-nav-btn px-3 py-1.5 rounded-lg font-medium transition-colors text-sm">
                             <i class="fas fa-file-invoice-dollar mr-1.5"></i>Offerte
                         </button>
-                        <button onclick="switchIntakeView('followup')" id="nav-followup"
-                                class="intake-nav-btn px-3 py-1.5 rounded-lg font-medium transition-colors text-sm">
+                        <button onclick="switchDossierView('followup')" id="nav-followup"
+                                class="dossier-nav-btn px-3 py-1.5 rounded-lg font-medium transition-colors text-sm">
                             <i class="fas fa-tasks mr-1.5"></i>Follow-up
                         </button>
                     </div>
@@ -276,8 +276,8 @@
 
                 <div class="flex items-center gap-2">
                     <!-- Mobile hamburger button -->
-                    <button onclick="toggleIntakeMobileMenu()" class="md:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors" id="intakeHamburgerBtn" title="Menu">
-                        <i class="fas fa-bars text-xl text-gray-700" id="intakeHamburgerIcon"></i>
+                    <button onclick="toggleDossierMobileMenu()" class="md:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors" id="dossierHamburgerBtn" title="Menu">
+                        <i class="fas fa-bars text-xl text-gray-700" id="dossierHamburgerIcon"></i>
                     </button>
 
                     <!-- User Dropdown -->
@@ -311,38 +311,38 @@
             </div>
 
             <!-- Mobile menu -->
-            <div id="intakeMobileMenu" class="md:hidden space-y-1 mt-4">
-                <button onclick="switchIntakeView('customers'); toggleIntakeMobileMenu();" id="mobile-nav-customers"
-                        class="intake-nav-btn active w-full text-left px-4 py-2.5 rounded-lg font-medium transition-colors flex items-center gap-2">
+            <div id="dossierMobileMenu" class="md:hidden space-y-1 mt-4">
+                <button onclick="switchDossierView('customers'); toggleDossierMobileMenu();" id="mobile-nav-customers"
+                        class="dossier-nav-btn active w-full text-left px-4 py-2.5 rounded-lg font-medium transition-colors flex items-center gap-2">
                     <i class="fas fa-users"></i>Klanten
                 </button>
-                <button onclick="switchIntakeView('pricelist'); toggleIntakeMobileMenu();" id="mobile-nav-pricelist"
-                        class="intake-nav-btn w-full text-left px-4 py-2.5 rounded-lg font-medium transition-colors flex items-center gap-2">
+                <button onclick="switchDossierView('pricelist'); toggleDossierMobileMenu();" id="mobile-nav-pricelist"
+                        class="dossier-nav-btn w-full text-left px-4 py-2.5 rounded-lg font-medium transition-colors flex items-center gap-2">
                     <i class="fas fa-tags"></i>Prijslijst
                 </button>
-                <button onclick="switchIntakeView('maintenance'); toggleIntakeMobileMenu();" id="mobile-nav-maintenance"
-                        class="intake-nav-btn w-full text-left px-4 py-2.5 rounded-lg font-medium transition-colors flex items-center gap-2">
+                <button onclick="switchDossierView('maintenance'); toggleDossierMobileMenu();" id="mobile-nav-maintenance"
+                        class="dossier-nav-btn w-full text-left px-4 py-2.5 rounded-lg font-medium transition-colors flex items-center gap-2">
                     <i class="fas fa-tools"></i>Onderhoudsplannen
                 </button>
-                <button onclick="switchIntakeView('notes'); toggleIntakeMobileMenu();" id="mobile-nav-notes"
-                        class="intake-nav-btn w-full text-left px-4 py-2.5 rounded-lg font-medium transition-colors flex items-center gap-2">
+                <button onclick="switchDossierView('notes'); toggleDossierMobileMenu();" id="mobile-nav-notes"
+                        class="dossier-nav-btn w-full text-left px-4 py-2.5 rounded-lg font-medium transition-colors flex items-center gap-2">
                     <i class="fas fa-sticky-note"></i>Notities
                 </button>
-                <button onclick="switchIntakeView('quote'); toggleIntakeMobileMenu();" id="mobile-nav-quote"
-                        class="intake-nav-btn w-full text-left px-4 py-2.5 rounded-lg font-medium transition-colors flex items-center gap-2">
+                <button onclick="switchDossierView('quote'); toggleDossierMobileMenu();" id="mobile-nav-quote"
+                        class="dossier-nav-btn w-full text-left px-4 py-2.5 rounded-lg font-medium transition-colors flex items-center gap-2">
                     <i class="fas fa-file-invoice-dollar"></i>Offerte
                 </button>
-                <button onclick="switchIntakeView('followup'); toggleIntakeMobileMenu();" id="mobile-nav-followup"
-                        class="intake-nav-btn w-full text-left px-4 py-2.5 rounded-lg font-medium transition-colors flex items-center gap-2">
+                <button onclick="switchDossierView('followup'); toggleDossierMobileMenu();" id="mobile-nav-followup"
+                        class="dossier-nav-btn w-full text-left px-4 py-2.5 rounded-lg font-medium transition-colors flex items-center gap-2">
                     <i class="fas fa-tasks"></i>Follow-up
                 </button>
                 <div class="border-t border-gray-200 pt-2 mt-2">
                     <button onclick="showSwitchToAdminConfirmation();"
-                            class="intake-nav-btn w-full text-left px-4 py-2.5 rounded-lg font-medium transition-colors flex items-center gap-2 text-green-600">
+                            class="dossier-nav-btn w-full text-left px-4 py-2.5 rounded-lg font-medium transition-colors flex items-center gap-2 text-green-600">
                         <i class="fas fa-chart-line"></i>Admin Portal
                     </button>
                     <button onclick="logout();"
-                            class="intake-nav-btn w-full text-left px-4 py-2.5 rounded-lg font-medium transition-colors flex items-center gap-2 text-red-600">
+                            class="dossier-nav-btn w-full text-left px-4 py-2.5 rounded-lg font-medium transition-colors flex items-center gap-2 text-red-600">
                         <i class="fas fa-sign-out-alt"></i>Uitloggen
                     </button>
                 </div>
@@ -353,7 +353,7 @@
     <!-- Main Content -->
     <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
         <!-- Customers View -->
-        <div id="view-customers" class="intake-view">
+        <div id="view-customers" class="dossier-view">
             <div class="flex items-center justify-between mb-6">
                 <h2 class="text-2xl font-bold text-gray-800 flex items-center gap-2">
                     <i class="fas fa-users text-blue-600"></i>
@@ -367,7 +367,7 @@
 
             <!-- Current Customer Info -->
             <div id="customerInfo" class="hidden">
-                <div class="intake-card p-6">
+                <div class="dossier-card p-6">
                     <div id="customerDetails" class="space-y-4">
                         <!-- Will be populated dynamically -->
                     </div>
@@ -375,15 +375,15 @@
             </div>
 
             <!-- Empty State -->
-            <div id="emptyState" class="intake-card p-12 text-center">
-                <div class="text-6xl mb-4">👥</div>
-                <h3 class="text-xl font-semibold text-gray-700 mb-2">Nog geen intake gestart</h3>
-                <p class="text-gray-500 mb-6">Start een nieuwe intake of open de intake van een bestaande klant</p>
+            <div id="emptyState" class="dossier-card p-12 text-center">
+                <div class="text-6xl mb-4">🗂️</div>
+                <h3 class="text-xl font-semibold text-gray-700 mb-2">Geen dossier geopend</h3>
+                <p class="text-gray-500 mb-6">Maak een nieuw klantendossier aan of open een bestaand dossier</p>
                 <div class="flex flex-col gap-4 max-w-md mx-auto">
                     <button onclick="openCustomerModal()" 
                             class="inline-flex items-center justify-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors">
                         <i class="fas fa-plus-circle mr-2"></i>
-                        Nieuwe Intake Starten
+                        Nieuw Dossier Aanmaken
                     </button>
 
                     <div class="relative">
@@ -398,31 +398,31 @@
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2 text-left">
                             <i class="fas fa-folder-open text-blue-500 mr-1"></i>
-                            Bestaande Intake Openen
+                            Klantendossier Openen
                         </label>
                         <div class="relative">
                             <div class="flex flex-col sm:flex-row gap-2">
-                                <input type="text" id="openIntakeCustomerNumber"
+                                <input type="text" id="openDossierCustomerNumber"
                                        placeholder="Zoeken..."
                                        autocomplete="off"
-                                       oninput="searchIntakeCustomers()"
-                                       onkeydown="handleIntakeSearchKeydown(event)"
+                                       oninput="searchDossierCustomers()"
+                                       onkeydown="handleDossierSearchKeydown(event)"
                                        class="flex-1 px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                                <button onclick="openExistingIntake()"
+                                <button onclick="openExistingDossier()"
                                         class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors">
                                     <i class="fas fa-folder-open mr-2"></i>Openen
                                 </button>
                             </div>
-                            <div id="intakeSearchResults" class="hidden absolute z-50 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-y-auto"></div>
+                            <div id="dossierSearchResults" class="hidden absolute z-50 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-y-auto"></div>
                         </div>
-                        <p class="text-xs text-gray-500 mt-2 text-left">🔍 Zoek op klantnummer of naam</p>
+                        <p class="text-xs text-gray-500 mt-2 text-left">🔍 Zoek op klantnummer of naam om het dossier te openen</p>
                     </div>
                 </div>
             </div>
         </div>
 
         <!-- Maintenance Plans View -->
-        <div id="view-maintenance" class="intake-view hidden">
+        <div id="view-maintenance" class="dossier-view hidden">
             <div class="mb-6">
                 <h2 class="text-2xl font-bold text-gray-800 flex items-center gap-2">
                     <i class="fas fa-tools text-blue-600"></i>
@@ -443,7 +443,7 @@
             </div>
 
             <!-- Empty State -->
-            <div id="maintenance-empty" class="hidden intake-card p-12 text-center">
+            <div id="maintenance-empty" class="hidden dossier-card p-12 text-center">
                 <div class="text-6xl mb-4">🔧</div>
                 <h3 class="text-xl font-semibold text-gray-700 mb-2">Geen onderhoudsplannen beschikbaar</h3>
                 <p class="text-gray-500">Er zijn momenteel geen actieve onderhoudsplannen om te tonen</p>
@@ -451,7 +451,7 @@
         </div>
 
         <!-- Price List View -->
-        <div id="view-pricelist" class="intake-view hidden">
+        <div id="view-pricelist" class="dossier-view hidden">
             <div class="mb-4">
                 <h2 class="text-2xl font-bold text-gray-800 flex items-center gap-2">
                     <i class="fas fa-tags text-blue-600"></i>
@@ -462,7 +462,7 @@
             <div class="flex gap-4 h-[calc(100vh-200px)]">
                 <!-- Category Sidebar -->
                 <div class="w-64 flex-shrink-0">
-                    <div class="intake-card h-full overflow-y-auto">
+                    <div class="dossier-card h-full overflow-y-auto">
                         <div class="p-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
                             <h3 class="font-semibold text-gray-700 flex items-center gap-2">
                                 <i class="fas fa-folder-open text-blue-600"></i>
@@ -480,7 +480,7 @@
 
                 <!-- Services Content -->
                 <div class="flex-1 min-w-0">
-                    <div class="intake-card h-full flex flex-col">
+                    <div class="dossier-card h-full flex flex-col">
                         <div class="p-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
                             <h3 class="font-semibold text-gray-700 flex items-center gap-2">
                                 <i class="fas fa-list text-blue-600"></i>
@@ -499,90 +499,61 @@
         </div>
 
         <!-- Notes View -->
-        <div id="view-notes" class="intake-view hidden">
+        <div id="view-notes" class="dossier-view hidden">
             <div class="flex items-center justify-between mb-6">
                 <h2 class="text-2xl font-bold text-gray-800 flex items-center gap-2">
                     <i class="fas fa-sticky-note text-yellow-600"></i>
-                    Gespreksnotities
+                    Dossiernotities
                 </h2>
                 <div class="flex gap-2">
-                    <button onclick="saveNotes()" 
+                    <button onclick="newNote()"
+                            class="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg transition-colors font-medium">
+                        <i class="fas fa-plus mr-2"></i>Nieuwe notitie
+                    </button>
+                    <button onclick="saveNotes()"
                             class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium">
                         <i class="fas fa-save mr-2"></i>Opslaan
-                    </button>
-                    <button onclick="clearNotes()" 
-                            class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition-colors font-medium">
-                        <i class="fas fa-eraser mr-2"></i>Wissen
                     </button>
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <!-- Quick Notes -->
-                <div class="intake-card">
-                    <div class="p-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
-                        <h3 class="font-semibold text-gray-800 flex items-center gap-2">
-                            <i class="fas fa-pen text-blue-600"></i>
-                            Intake Notities
-                        </h3>
-                        <p class="text-sm text-gray-600 mt-1">Noteer de punten die belangrijk zijn tijdens deze intake</p>
-                    </div>
-                    <div class="p-6">
-                        <textarea id="quickNotes" rows="12" 
-                                  class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 resize-none"
-                                  placeholder="Typ hier je notities...&#10;&#10;Bijv:&#10;- Pijnpunten&#10;- Huidige situatie&#10;- Specifieke wensen&#10;- Budget indicatie"></textarea>
-                        <div class="flex items-center justify-between mt-2 text-sm text-gray-500">
-                            <span id="notesCharCount">0 karakters</span>
-                            <span id="notesLastSaved" class="text-green-600"></span>
+            <div class="flex gap-6 h-[calc(100vh-220px)]">
+                <!-- Sidebar: Saved Notes List -->
+                <div class="w-72 flex-shrink-0">
+                    <div class="dossier-card h-full flex flex-col">
+                        <div class="p-4 border-b border-gray-200 bg-gradient-to-r from-yellow-50 to-amber-50">
+                            <h3 class="font-semibold text-gray-700 flex items-center gap-2">
+                                <i class="fas fa-history text-yellow-600"></i>
+                                Opgeslagen Notities
+                            </h3>
+                        </div>
+                        <div id="savedNotesList" class="flex-1 overflow-y-auto p-2">
+                            <div class="text-center py-8 text-gray-400 text-sm">
+                                <i class="fas fa-sticky-note text-3xl mb-2 block"></i>
+                                <p>Nog geen notities opgeslagen</p>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Structured Info -->
-                <div class="space-y-4">
-
-                    <!-- Current Situation -->
-                    <div class="intake-card">
-                        <div class="p-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+                <!-- Central Notes Area -->
+                <div class="flex-1 min-w-0">
+                    <div class="dossier-card h-full flex flex-col">
+                        <div class="p-4 border-b border-yellow-200 bg-gradient-to-r from-yellow-50 to-amber-50">
                             <h3 class="font-semibold text-gray-800 flex items-center gap-2">
-                                <i class="fas fa-info-circle text-blue-600"></i>
-                                Huidige Situatie
+                                <i class="fas fa-pen text-yellow-600"></i>
+                                Dossiernotities
                             </h3>
+                            <p class="text-sm text-gray-600 mt-1">Noteer belangrijke informatie voor het klantendossier</p>
                         </div>
-                        <div class="p-4">
-                            <textarea id="currentSituation" rows="4" 
-                                      class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-                                      placeholder="Wat gebruiken ze nu? Welke tools/processen?"></textarea>
-                        </div>
-                    </div>
-
-                    <!-- Pain Points -->
-                    <div class="intake-card">
-                        <div class="p-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-red-50">
-                            <h3 class="font-semibold text-gray-800 flex items-center gap-2">
-                                <i class="fas fa-exclamation-triangle text-red-600"></i>
-                                Pijnpunten
-                            </h3>
-                        </div>
-                        <div class="p-4">
-                            <textarea id="painPoints" rows="4" 
-                                      class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none"
-                                      placeholder="Wat zijn de grootste uitdagingen?"></textarea>
-                        </div>
-                    </div>
-
-                    <!-- Desired Outcome -->
-                    <div class="intake-card">
-                        <div class="p-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-emerald-50">
-                            <h3 class="font-semibold text-gray-800 flex items-center gap-2">
-                                <i class="fas fa-bullseye text-green-600"></i>
-                                Gewenst Resultaat
-                            </h3>
-                        </div>
-                        <div class="p-4">
-                            <textarea id="desiredOutcome" rows="4" 
-                                      class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 resize-none"
-                                      placeholder="Wat willen ze bereiken?"></textarea>
+                        <div class="p-6 flex flex-col flex-1">
+                            <textarea id="quickNotes"
+                                      class="w-full flex-1 px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 resize-none"
+                                      placeholder="Typ hier je notities...&#10;&#10;Bijv:&#10;- Afspraken en besluiten&#10;- Huidige situatie klant&#10;- Specifieke wensen en eisen&#10;- Geleverde diensten&#10;- Openstaande actiepunten"></textarea>
+                            <div class="flex items-center justify-between mt-2 text-sm text-gray-500">
+                                <span id="notesCharCount">0 karakters</span>
+                                <span id="notesLastSaved" class="text-green-600"></span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -590,7 +561,7 @@
         </div>
 
         <!-- Quote View -->
-        <div id="view-quote" class="intake-view hidden">
+        <div id="view-quote" class="dossier-view hidden">
             <div class="flex items-center justify-between mb-6">
                 <h2 class="text-2xl font-bold text-gray-800 flex items-center gap-2">
                     <i class="fas fa-file-invoice-dollar text-blue-600"></i>
@@ -610,7 +581,7 @@
 
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <!-- Services Selection -->
-                <div class="lg:col-span-2 intake-card">
+                <div class="lg:col-span-2 dossier-card">
                     <div class="p-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
                         <h3 class="font-semibold text-gray-800 flex items-center gap-2">
                             <i class="fas fa-plus-circle text-blue-600"></i>
@@ -640,7 +611,7 @@
                 <!-- Quote Summary -->
                 <div class="space-y-4">
                     <!-- Selected Items -->
-                    <div class="intake-card">
+                    <div class="dossier-card">
                         <div class="p-4 border-b border-gray-200 bg-gradient-to-r from-green-50 to-emerald-50">
                             <h3 class="font-semibold text-gray-800 flex items-center gap-2">
                                 <i class="fas fa-list-check text-green-600"></i>
@@ -656,7 +627,7 @@
                     </div>
 
                     <!-- Total -->
-                    <div class="intake-card bg-gradient-to-br from-blue-600 to-blue-700 text-white">
+                    <div class="dossier-card bg-gradient-to-br from-blue-600 to-blue-700 text-white">
                         <div class="p-6">
                             <div class="text-sm font-medium mb-1">Subtotaal (excl. BTW)</div>
                             <div class="text-3xl font-bold mb-3" id="quoteSubtotal">€ 0,00</div>
@@ -675,7 +646,7 @@
                     </div>
 
                     <!-- Discount -->
-                    <div class="intake-card">
+                    <div class="dossier-card">
                         <div class="p-4">
                             <label class="block text-sm font-medium text-gray-700 mb-2">
                                 <i class="fas fa-percent text-orange-500 mr-1"></i>
@@ -691,16 +662,16 @@
         </div>
 
         <!-- Follow-up View -->
-        <div id="view-followup" class="intake-view hidden">
+        <div id="view-followup" class="dossier-view hidden">
             <div class="flex items-center justify-between mb-6">
                 <h2 class="text-2xl font-bold text-gray-800 flex items-center gap-2">
                     <i class="fas fa-tasks text-purple-600"></i>
                     Follow-up Planning
                 </h2>
                 <div class="flex gap-2">
-                    <button onclick="completeIntake()" 
+                    <button onclick="completeDossier()" 
                             class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-medium">
-                        <i class="fas fa-check-circle mr-2"></i>Intake Afronden
+                        <i class="fas fa-check-circle mr-2"></i>Dossier Afronden
                     </button>
                     <button onclick="addFollowUpAction()" 
                             class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium">
@@ -711,7 +682,7 @@
 
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <!-- Actions List -->
-                <div class="intake-card">
+                <div class="dossier-card">
                     <div class="p-4 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-pink-50">
                         <h3 class="font-semibold text-gray-800 flex items-center gap-2">
                             <i class="fas fa-clipboard-list text-purple-600"></i>
@@ -729,7 +700,7 @@
                 </div>
 
                 <!-- Add Action Form -->
-                <div class="intake-card">
+                <div class="dossier-card">
                     <div class="p-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
                         <h3 class="font-semibold text-gray-800 flex items-center gap-2">
                             <i class="fas fa-plus-circle text-blue-600"></i>
@@ -814,10 +785,10 @@
                     <div class="mb-4">
                         <div class="flex items-center justify-between mb-1">
                             <span class="text-xs font-medium text-gray-600">Voortgang</span>
-                            <span class="text-xs text-gray-600" id="intakeFormProgress">0%</span>
+                            <span class="text-xs text-gray-600" id="dossierFormProgress">0%</span>
                         </div>
                         <div class="w-full bg-gray-200 rounded-full h-1.5">
-                            <div id="intakeProgressBar" class="h-1.5 rounded-full transition-all duration-300" 
+                            <div id="dossierProgressBar" class="h-1.5 rounded-full transition-all duration-300" 
                                  style="width: 0%; background: #2563eb;"></div>
                         </div>
                     </div>
@@ -825,28 +796,28 @@
                     <!-- Tabbed Interface -->
                     <div class="border-b border-gray-200">
                         <nav class="flex space-x-4" role="tablist">
-                            <button type="button" onclick="switchIntakeTab('contact')" id="intake-tab-contact" 
-                                    class="intake-tab-button active px-4 py-2 font-medium text-sm border-b-2 border-blue-500 text-blue-600 transition-colors">
+                            <button type="button" onclick="switchDossierTab('contact')" id="dossier-tab-contact" 
+                                    class="dossier-tab-button active px-4 py-2 font-medium text-sm border-b-2 border-blue-500 text-blue-600 transition-colors">
                                 <i class="fas fa-user mr-2"></i>Contactpersoon
-                                <span class="intake-tab-check ml-2 hidden text-green-500">✓</span>
+                                <span class="dossier-tab-check ml-2 hidden text-green-500">✓</span>
                             </button>
-                            <button type="button" onclick="switchIntakeTab('business')" id="intake-tab-business"
-                                    class="intake-tab-button px-4 py-2 font-medium text-sm border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 transition-colors">
+                            <button type="button" onclick="switchDossierTab('business')" id="dossier-tab-business"
+                                    class="dossier-tab-button px-4 py-2 font-medium text-sm border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 transition-colors">
                                 <i class="fas fa-building mr-2"></i>Bedrijf
-                                <span class="intake-tab-check ml-2 hidden text-green-500">✓</span>
+                                <span class="dossier-tab-check ml-2 hidden text-green-500">✓</span>
                             </button>
-                            <button type="button" onclick="switchIntakeTab('address')" id="intake-tab-address"
-                                    class="intake-tab-button px-4 py-2 font-medium text-sm border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 transition-colors">
+                            <button type="button" onclick="switchDossierTab('address')" id="dossier-tab-address"
+                                    class="dossier-tab-button px-4 py-2 font-medium text-sm border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 transition-colors">
                                 <i class="fas fa-map-marker-alt mr-2"></i>Adres
-                                <span class="intake-tab-check ml-2 hidden text-green-500">✓</span>
+                                <span class="dossier-tab-check ml-2 hidden text-green-500">✓</span>
                             </button>
                         </nav>
                     </div>
 
                     <!-- Tab Content -->
-                    <div id="intakeTabContent">
+                    <div id="dossierTabContent">
                         <!-- Contact Tab -->
-                        <div id="intake-content-contact" class="intake-tab-content">
+                        <div id="dossier-content-contact" class="dossier-tab-content">
                             <div class="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-lg shadow-sm">
                                 <div class="flex items-center mb-4">
                                     <div class="w-12 h-12 rounded-full flex items-center justify-center text-white text-xl mr-4" 
@@ -868,7 +839,7 @@
                                             <input type="text" id="contactName" required
                                                    placeholder="Voor- en achternaam"
                                                    class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all">
-                                            <span class="intake-field-check hidden absolute right-3 top-3 text-green-500">✓</span>
+                                            <span class="dossier-field-check hidden absolute right-3 top-3 text-green-500">✓</span>
                                         </div>
                                     </div>
                                     <div class="form-group">
@@ -880,7 +851,7 @@
                                             <input type="email" id="contactEmail" required
                                                    placeholder="contact@bedrijf.nl"
                                                    class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all">
-                                            <span class="intake-field-check hidden absolute right-3 top-3 text-green-500">✓</span>
+                                            <span class="dossier-field-check hidden absolute right-3 top-3 text-green-500">✓</span>
                                         </div>
                                         <p class="text-xs text-gray-500 mt-1">💡 We vullen automatisch het domein in</p>
                                     </div>
@@ -893,7 +864,7 @@
                                             <input type="tel" id="contactPhone" required
                                                    placeholder="06-12345678"
                                                    class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all">
-                                            <span class="intake-field-check hidden absolute right-3 top-3 text-green-500">✓</span>
+                                            <span class="dossier-field-check hidden absolute right-3 top-3 text-green-500">✓</span>
                                         </div>
                                     </div>
                                 </div>
@@ -901,7 +872,7 @@
                         </div>
 
                         <!-- Business Tab -->
-                        <div id="intake-content-business" class="intake-tab-content hidden">
+                        <div id="dossier-content-business" class="dossier-tab-content hidden">
                             <div class="bg-gradient-to-br from-green-50 to-emerald-50 p-6 rounded-lg shadow-sm">
                                 <div class="flex items-center mb-4">
                                     <div class="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center text-white text-xl mr-4">
@@ -932,12 +903,12 @@
                                                            pattern="[0-9]{8}"
                                                            title="Voer een geldig 8-cijferig KvK-nummer in"
                                                            class="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500">
-                                                    <button type="button" onclick="intakeLookupKvK()" id="intakeKvkLookupBtn"
+                                                    <button type="button" onclick="dossierLookupKvK()" id="dossierKvkLookupBtn"
                                                             class="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors font-medium whitespace-nowrap">
                                                         <i class="fas fa-search mr-1"></i> Zoek
                                                     </button>
                                                 </div>
-                                                <div id="intakeKvkStatus" class="text-sm mt-2"></div>
+                                                <div id="dossierKvkStatus" class="text-sm mt-2"></div>
                                             </div>
                                         </div>
                                     </div>
@@ -953,7 +924,7 @@
                                             <input type="text" id="businessName" required
                                                    placeholder="Officiële bedrijfsnaam"
                                                    class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all">
-                                            <span class="intake-field-check hidden absolute right-3 top-3 text-green-500">✓</span>
+                                            <span class="dossier-field-check hidden absolute right-3 top-3 text-green-500">✓</span>
                                         </div>
                                     </div>
                                     <div class="form-group">
@@ -965,7 +936,7 @@
                                             <input type="text" id="businessDisplayName"
                                                    placeholder="Korte naam voor facturen"
                                                    class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all">
-                                            <span class="intake-field-check hidden absolute right-3 top-3 text-green-500">✓</span>
+                                            <span class="dossier-field-check hidden absolute right-3 top-3 text-green-500">✓</span>
                                         </div>
                                         <p class="text-xs text-gray-500 mt-1">💡 Indien leeg wordt de bedrijfsnaam getoond</p>
                                     </div>
@@ -980,7 +951,7 @@
                                                        pattern="[A-Z]{2}[0-9]{9}B[0-9]{2}"
                                                        title="Voer een geldig BTW-nummer in (bijv. NL123456789B01)"
                                                    class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all">
-                                            <span class="intake-field-check hidden absolute right-3 top-3 text-green-500">✓</span>
+                                            <span class="dossier-field-check hidden absolute right-3 top-3 text-green-500">✓</span>
                                         </div>
                                     </div>
                                     <div class="form-group">
@@ -992,7 +963,7 @@
                                             <input type="email" id="businessEmail"
                                                    placeholder="info@bedrijf.nl"
                                                    class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all">
-                                            <span class="intake-field-check hidden absolute right-3 top-3 text-green-500">✓</span>
+                                            <span class="dossier-field-check hidden absolute right-3 top-3 text-green-500">✓</span>
                                         </div>
                                     </div>
                                 </div>
@@ -1000,7 +971,7 @@
                         </div>
 
                         <!-- Address Tab -->
-                        <div id="intake-content-address" class="intake-tab-content hidden">
+                        <div id="dossier-content-address" class="dossier-tab-content hidden">
                             <div class="bg-gradient-to-br from-purple-50 to-pink-50 p-6 rounded-lg shadow-sm">
                                 <div class="flex items-center mb-4">
                                     <div class="w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center text-white text-xl mr-4">
@@ -1022,7 +993,7 @@
                                                 <input type="text" id="addressStreet" required
                                                        placeholder="Straatnaam"
                                                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all">
-                                                <span class="intake-field-check hidden absolute right-3 top-3 text-green-500">✓</span>
+                                                <span class="dossier-field-check hidden absolute right-3 top-3 text-green-500">✓</span>
                                             </div>
                                         </div>
                                         <div class="form-group">
@@ -1034,7 +1005,7 @@
                                                 <input type="text" id="addressNumber" required
                                                        placeholder="123"
                                                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all">
-                                                <span class="intake-field-check hidden absolute right-3 top-3 text-green-500">✓</span>
+                                                <span class="dossier-field-check hidden absolute right-3 top-3 text-green-500">✓</span>
                                             </div>
                                         </div>
                                     </div>
@@ -1050,7 +1021,7 @@
                                                        pattern="[0-9]{4}[A-Za-z]{2}"
                                                        title="Voer een geldige postcode in (bijv. 1234AB)"
                                                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all">
-                                                <span class="intake-field-check hidden absolute right-3 top-3 text-green-500">✓</span>
+                                                <span class="dossier-field-check hidden absolute right-3 top-3 text-green-500">✓</span>
                                             </div>
                                         </div>
                                         <div class="form-group">
@@ -1062,7 +1033,7 @@
                                                 <input type="text" id="addressCity" required
                                                        placeholder="Amsterdam"
                                                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all">
-                                                <span class="intake-field-check hidden absolute right-3 top-3 text-green-500">✓</span>
+                                                <span class="dossier-field-check hidden absolute right-3 top-3 text-green-500">✓</span>
                                             </div>
                                         </div>
                                     </div>
@@ -1075,10 +1046,10 @@
 
             <div class="p-6 border-t border-gray-200 flex gap-3 justify-between items-center">
                 <div class="flex gap-2">
-                    <button type="button" onclick="intakePrevTab()" id="intakePrevBtn" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                    <button type="button" onclick="dossierPrevTab()" id="dossierPrevBtn" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" disabled>
                         <i class="fas fa-arrow-left mr-2"></i>Vorige
                     </button>
-                    <button type="button" onclick="intakeNextTab()" id="intakeNextBtn" class="px-4 py-2 text-white rounded-lg transition-colors" style="background: #2563eb;">
+                    <button type="button" onclick="dossierNextTab()" id="dossierNextBtn" class="px-4 py-2 text-white rounded-lg transition-colors" style="background: #2563eb;">
                         Volgende<i class="fas fa-arrow-right ml-2"></i>
                     </button>
                 </div>
@@ -1087,7 +1058,7 @@
                             class="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
                         Annuleren
                     </button>
-                    <button onclick="saveCustomer()" id="intakeSaveBtn"
+                    <button onclick="saveCustomer()" id="dossierSaveBtn"
                             class="px-6 py-2 text-white rounded-lg font-semibold transition-colors"
                             style="background: #2563eb;">
                         <i class="fas fa-save mr-2"></i>Opslaan
@@ -1117,7 +1088,7 @@
                             Weet je zeker dat je wilt overschakelen naar het Admin Portal?
                         </p>
                         <p class="text-sm text-gray-500">
-                            Je huidige intake sessie wordt bewaard en je kunt later terugkeren.
+                            Je huidige dossier sessie wordt bewaard en je kunt later terugkeren.
                         </p>
                     </div>
                 </div>
@@ -1141,7 +1112,7 @@
     <script src="js/api.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/ui.js"></script>
-    <script src="js/intake.js"></script>
+    <script src="js/dossier.js"></script>
 </body>
 
 </html>

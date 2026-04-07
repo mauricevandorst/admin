@@ -1,9 +1,9 @@
-// Main application initialization
+﻿// Main application initialization
 document.addEventListener('DOMContentLoaded', () => {
-    // Check if user is in intake mode and redirect if needed
+    // Check if user is in dossier mode and redirect if needed
     const session = getSession();
-    if (session && session.intakeMode) {
-        window.location.href = 'intake.html';
+    if (session && session.dossierMode) {
+        window.location.href = 'dossier.html';
         return;
     }
 

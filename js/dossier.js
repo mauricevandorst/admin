@@ -1,12 +1,12 @@
-// Intake Mode JavaScript
+﻿// Dossier Mode JavaScript
 
 // Current view state
 let currentView = 'customers';
 
 // Toggle mobile menu
-function toggleIntakeMobileMenu() {
-    const mobileMenu = document.getElementById('intakeMobileMenu');
-    const hamburgerIcon = document.getElementById('intakeHamburgerIcon');
+function toggleDossierMobileMenu() {
+    const mobileMenu = document.getElementById('dossierMobileMenu');
+    const hamburgerIcon = document.getElementById('dossierHamburgerIcon');
 
     mobileMenu.classList.toggle('menu-open');
 
@@ -20,12 +20,12 @@ function toggleIntakeMobileMenu() {
 }
 
 // Switch between views
-function switchIntakeView(view) {
+function switchDossierView(view) {
     // Hide all views
-    document.querySelectorAll('.intake-view').forEach(v => v.classList.add('hidden'));
+    document.querySelectorAll('.dossier-view').forEach(v => v.classList.add('hidden'));
 
     // Remove active state from all nav buttons
-    document.querySelectorAll('.intake-nav-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.dossier-nav-btn').forEach(btn => btn.classList.remove('active'));
 
     // Show selected view
     document.getElementById(`view-${view}`).classList.remove('hidden');
@@ -55,8 +55,8 @@ function switchIntakeView(view) {
     }
 }
 
-// Check if user is logged in and in intake mode
-function checkIntakeSession() {
+// Check if user is logged in and in dossier mode
+function checkDossierSession() {
     const session = getSession();
     
     if (!session) {
@@ -65,8 +65,8 @@ function checkIntakeSession() {
         return;
     }
     
-    if (!session.intakeMode) {
-        // Not in intake mode, redirect to main portal
+    if (!session.dossierMode) {
+        // Not in dossier mode, redirect to main portal
         window.location.href = 'index.html';
         return;
     }
@@ -255,7 +255,7 @@ function openCustomerModal() {
     document.getElementById('customerModalIcon').className = 'fas fa-user-plus';
     document.getElementById('customerForm').reset();
     document.getElementById('customerModal').classList.remove('hidden');
-    switchIntakeTab('contact');
+    switchDossierTab('contact');
 }
 
 // Close customer modal
@@ -269,7 +269,7 @@ function closeCustomerModal() {
 
 // Edit the current customer (pre-fill modal with existing data)
 function editCurrentCustomer() {
-    const stored = sessionStorage.getItem('intakeCustomer');
+    const stored = sessionStorage.getItem('dossierCustomer');
     if (!stored) return;
 
     const customer = JSON.parse(stored);
@@ -298,7 +298,7 @@ function editCurrentCustomer() {
     document.getElementById('addressCity').value = customer.business?.address?.city || '';
 
     document.getElementById('customerModal').classList.remove('hidden');
-    switchIntakeTab('contact');
+    switchDossierTab('contact');
 }
 
 // Generate GUID
@@ -378,7 +378,7 @@ async function saveCustomer() {
         // Validate required fields - CONTACT
         if (!contactName || !contactEmail || !contactPhone) {
             alert('❌ Vul alle verplichte contactgegevens in:\n- Naam (*)\n- E-mail (*)\n- Telefoon (*)');
-            switchIntakeTab('contact');
+            switchDossierTab('contact');
             if (!contactName) document.getElementById('contactName').focus();
             else if (!contactEmail) document.getElementById('contactEmail').focus();
             else document.getElementById('contactPhone').focus();
@@ -388,7 +388,7 @@ async function saveCustomer() {
         // Validate email format
         if (!contactEmail.includes('@')) {
             alert('❌ Voer een geldig e-mailadres in');
-            switchIntakeTab('contact');
+            switchDossierTab('contact');
             document.getElementById('contactEmail').focus();
             return;
         }
@@ -396,7 +396,7 @@ async function saveCustomer() {
         // Validate required fields - BUSINESS
         if (!businessName) {
             alert('❌ Vul de bedrijfsnaam in');
-            switchIntakeTab('business');
+            switchDossierTab('business');
             document.getElementById('businessName').focus();
             return;
         }
@@ -404,7 +404,7 @@ async function saveCustomer() {
         // Validate KvK format only if filled in
         if (businessKvk && !/^[0-9]{8}$/.test(businessKvk)) {
             alert('❌ KvK-nummer moet exact 8 cijfers bevatten (bijv. 12345678)');
-            switchIntakeTab('business');
+            switchDossierTab('business');
             document.getElementById('businessKvk').focus();
             return;
         }
@@ -412,7 +412,7 @@ async function saveCustomer() {
         // Validate BTW format only if filled in
         if (businessVat && !/^[A-Z]{2}[0-9]{9}B[0-9]{2}$/.test(businessVat)) {
             alert('❌ BTW-nummer moet het juiste formaat hebben (bijv. NL123456789B01)');
-            switchIntakeTab('business');
+            switchDossierTab('business');
             document.getElementById('businessVat').focus();
             return;
         }
@@ -420,7 +420,7 @@ async function saveCustomer() {
         // Validate required fields - ADDRESS
         if (!addressStreet || !addressNumber || !addressPostal || !addressCity) {
             alert('❌ Vul alle verplichte adresgegevens in:\n- Straat (*)\n- Nummer (*)\n- Postcode (*)\n- Plaats (*)');
-            switchIntakeTab('address');
+            switchDossierTab('address');
             if (!addressStreet) document.getElementById('addressStreet').focus();
             else if (!addressNumber) document.getElementById('addressNumber').focus();
             else if (!addressPostal) document.getElementById('addressPostal').focus();
@@ -431,7 +431,7 @@ async function saveCustomer() {
         // Validate postcode format (1234AB)
         if (!/^[0-9]{4}[A-Za-z]{2}$/.test(addressPostal)) {
             alert('❌ Postcode moet het juiste formaat hebben (bijv. 1234AB)');
-            switchIntakeTab('address');
+            switchDossierTab('address');
             document.getElementById('addressPostal').focus();
             return;
         }
@@ -530,8 +530,8 @@ async function saveCustomer() {
         document.getElementById('customerModal').classList.add('hidden');
         document.getElementById('customerForm').reset();
 
-        // Store customer in session storage for this intake session
-        sessionStorage.setItem('intakeCustomer', JSON.stringify(savedCustomer));
+        // Store customer in session storage for this dossier session
+        sessionStorage.setItem('dossierCustomer', JSON.stringify(savedCustomer));
 
         // Display customer info
         displayCustomer(savedCustomer);
@@ -625,9 +625,9 @@ function displayCustomer(customer) {
         </div>
 
         <div class="flex gap-3 mt-4">
-            <button onclick="loadIntakeForCurrentCustomer()" 
+            <button onclick="loadDossierForCurrentCustomer()" 
                     class="flex-1 py-3 px-4 bg-orange-100 hover:bg-orange-200 text-orange-700 rounded-lg transition-colors font-medium">
-                <i class="fas fa-folder-open mr-2"></i>Intake Laden
+                <i class="fas fa-folder-open mr-2"></i>Dossier Laden
             </button>
             <button onclick="viewPriceList()" 
                     class="flex-1 py-3 px-4 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg transition-colors font-medium">
@@ -635,7 +635,7 @@ function displayCustomer(customer) {
             </button>
             <button onclick="openCustomerModal()" 
                     class="flex-1 py-3 px-4 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-colors font-medium">
-                <i class="fas fa-plus mr-2"></i>Nieuwe klant aanmaken
+                <i class="fas fa-plus mr-2"></i>Nieuw dossier aanmaken
             </button>
             <button onclick="editCurrentCustomer()"
                     class="py-3 px-4 bg-yellow-100 hover:bg-yellow-200 text-yellow-700 rounded-lg transition-colors font-medium">
@@ -651,7 +651,7 @@ function displayCustomer(customer) {
 
 // Quick link to price list
 function viewPriceList() {
-    switchIntakeView('pricelist');
+    switchDossierView('pricelist');
 }
 
 // Close the current customer and return to empty state
@@ -660,12 +660,12 @@ function closeCurrentCustomer() {
         return;
     }
 
-    // Clear all session data for this intake
-    sessionStorage.removeItem('intakeCustomer');
-    sessionStorage.removeItem('intakeId');
-    sessionStorage.removeItem('intakeNotes');
-    sessionStorage.removeItem('intakeQuote');
-    sessionStorage.removeItem('intakeFollowUp');
+    // Clear all session data for this dossier
+    sessionStorage.removeItem('dossierCustomer');
+    sessionStorage.removeItem('dossierId');
+    sessionStorage.removeItem('dossierQuote');
+    sessionStorage.removeItem('dossierFollowUp');
+    currentIntake = null;
 
     // Clear note fields
     const fields = ['quickNotes', 'painPoints', 'currentSituation', 'desiredOutcome'];
@@ -683,28 +683,31 @@ function closeCurrentCustomer() {
     document.getElementById('emptyState').classList.remove('hidden');
 
     // Switch back to customers view
-    switchIntakeView('customers');
+    switchDossierView('customers');
 }
 
 // Initialize page
 document.addEventListener('DOMContentLoaded', function() {
-    // Close intake search dropdown when clicking outside
+    // Close dossier search dropdown when clicking outside
     document.addEventListener('click', function(e) {
-        const searchInput = document.getElementById('openIntakeCustomerNumber');
-        const resultsDiv = document.getElementById('intakeSearchResults');
+        const searchInput = document.getElementById('openDossierCustomerNumber');
+        const resultsDiv = document.getElementById('dossierSearchResults');
         if (resultsDiv && searchInput && !searchInput.contains(e.target) && !resultsDiv.contains(e.target)) {
             resultsDiv.classList.add('hidden');
         }
     });
 
     // Check session
-    checkIntakeSession();
+    checkDossierSession();
+
+    // Start idle/session watchers
+    _startSessionWatchers();
 
     // Start on customers view
-    switchIntakeView('customers');
+    switchDossierView('customers');
 
     // Check if there's already a customer in this session
-    const savedCustomer = sessionStorage.getItem('intakeCustomer');
+    const savedCustomer = sessionStorage.getItem('dossierCustomer');
     if (savedCustomer) {
         try {
             const customer = JSON.parse(savedCustomer);
@@ -720,58 +723,58 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Setup form enhancements
-    setupIntakeFormEnhancements();
+    setupDossierFormEnhancements();
 });
 
 // Tab navigation
-let currentIntakeTab = 'contact';
-const intakeTabs = ['contact', 'business', 'address'];
+let currentDossierTab = 'contact';
+const dossierTabs = ['contact', 'business', 'address'];
 
-function switchIntakeTab(tabName) {
+function switchDossierTab(tabName) {
     // Hide all tab contents
-    document.querySelectorAll('.intake-tab-content').forEach(content => {
+    document.querySelectorAll('.dossier-tab-content').forEach(content => {
         content.classList.add('hidden');
     });
 
     // Remove active state from all tabs
-    document.querySelectorAll('.intake-tab-button').forEach(button => {
+    document.querySelectorAll('.dossier-tab-button').forEach(button => {
         button.classList.remove('active', 'text-blue-600', 'border-blue-500');
         button.classList.add('text-gray-500', 'border-transparent');
     });
 
     // Show selected tab content
-    document.getElementById(`intake-content-${tabName}`).classList.remove('hidden');
+    document.getElementById(`dossier-content-${tabName}`).classList.remove('hidden');
 
     // Set active tab button
-    const activeTab = document.getElementById(`intake-tab-${tabName}`);
+    const activeTab = document.getElementById(`dossier-tab-${tabName}`);
     activeTab.classList.add('active', 'text-blue-600', 'border-blue-500');
     activeTab.classList.remove('text-gray-500', 'border-transparent');
 
     // Update current tab
-    currentIntakeTab = tabName;
+    currentDossierTab = tabName;
 
     // Update navigation buttons
-    updateIntakeNavButtons();
+    updateDossierNavButtons();
 }
 
-function intakeNextTab() {
-    const currentIndex = intakeTabs.indexOf(currentIntakeTab);
-    if (currentIndex < intakeTabs.length - 1) {
-        switchIntakeTab(intakeTabs[currentIndex + 1]);
+function dossierNextTab() {
+    const currentIndex = dossierTabs.indexOf(currentDossierTab);
+    if (currentIndex < dossierTabs.length - 1) {
+        switchDossierTab(dossierTabs[currentIndex + 1]);
     }
 }
 
-function intakePrevTab() {
-    const currentIndex = intakeTabs.indexOf(currentIntakeTab);
+function dossierPrevTab() {
+    const currentIndex = dossierTabs.indexOf(currentDossierTab);
     if (currentIndex > 0) {
-        switchIntakeTab(intakeTabs[currentIndex - 1]);
+        switchDossierTab(dossierTabs[currentIndex - 1]);
     }
 }
 
-function updateIntakeNavButtons() {
-    const currentIndex = intakeTabs.indexOf(currentIntakeTab);
-    const prevBtn = document.getElementById('intakePrevBtn');
-    const nextBtn = document.getElementById('intakeNextBtn');
+function updateDossierNavButtons() {
+    const currentIndex = dossierTabs.indexOf(currentDossierTab);
+    const prevBtn = document.getElementById('dossierPrevBtn');
+    const nextBtn = document.getElementById('dossierNextBtn');
 
     // Disable/enable prev button
     if (currentIndex === 0) {
@@ -783,7 +786,7 @@ function updateIntakeNavButtons() {
     }
 
     // Hide/show next button based on last tab
-    if (currentIndex === intakeTabs.length - 1) {
+    if (currentIndex === dossierTabs.length - 1) {
         nextBtn.classList.add('hidden');
     } else {
         nextBtn.classList.remove('hidden');
@@ -791,7 +794,7 @@ function updateIntakeNavButtons() {
 }
 
 // Form enhancements - progress tracking and field validation
-function setupIntakeFormEnhancements() {
+function setupDossierFormEnhancements() {
     const form = document.getElementById('customerForm');
     if (!form) return;
 
@@ -800,12 +803,12 @@ function setupIntakeFormEnhancements() {
     // Add input listeners for progress tracking
     allInputs.forEach(input => {
         input.addEventListener('input', () => {
-            updateIntakeProgress();
-            validateIntakeField(input);
+            updateDossierProgress();
+            validateDossierField(input);
         });
 
         input.addEventListener('blur', () => {
-            validateIntakeField(input);
+            validateDossierField(input);
         });
     });
 
@@ -822,10 +825,10 @@ function setupIntakeFormEnhancements() {
     }
 
     // Initial progress update
-    updateIntakeProgress();
+    updateDossierProgress();
 }
 
-function updateIntakeProgress() {
+function updateDossierProgress() {
     const form = document.getElementById('customerForm');
     if (!form) return;
 
@@ -834,21 +837,21 @@ function updateIntakeProgress() {
 
     const progress = Math.round((filledFields.length / requiredFields.length) * 100);
 
-    const progressBar = document.getElementById('intakeProgressBar');
-    const progressText = document.getElementById('intakeFormProgress');
+    const progressBar = document.getElementById('dossierProgressBar');
+    const progressText = document.getElementById('dossierFormProgress');
 
     if (progressBar) progressBar.style.width = `${progress}%`;
     if (progressText) progressText.textContent = `${progress}%`;
 
     // Update tab checkmarks
-    updateIntakeTabChecks();
+    updateDossierTabChecks();
 }
 
-function validateIntakeField(input) {
+function validateDossierField(input) {
     const parent = input.closest('.form-group');
     if (!parent) return;
 
-    const checkmark = parent.querySelector('.intake-field-check');
+    const checkmark = parent.querySelector('.dossier-field-check');
 
     let isValid = false;
 
@@ -876,14 +879,14 @@ function validateIntakeField(input) {
     }
 }
 
-function updateIntakeTabChecks() {
+function updateDossierTabChecks() {
     // Check contact tab
     const contactName = document.getElementById('contactName')?.value.trim();
     const contactEmail = document.getElementById('contactEmail')?.value.trim();
     const contactPhone = document.getElementById('contactPhone')?.value.trim();
     const contactComplete = contactName && contactEmail && contactEmail.includes('@') && contactPhone;
 
-    const contactCheck = document.querySelector('#intake-tab-contact .intake-tab-check');
+    const contactCheck = document.querySelector('#dossier-tab-contact .dossier-tab-check');
     if (contactCheck) {
         contactCheck.classList.toggle('hidden', !contactComplete);
     }
@@ -896,7 +899,7 @@ function updateIntakeTabChecks() {
                             /^[0-9]{8}$/.test(businessKvk) && 
                             /^[A-Z]{2}[0-9]{9}B[0-9]{2}$/.test(businessVat);
 
-    const businessCheck = document.querySelector('#intake-tab-business .intake-tab-check');
+    const businessCheck = document.querySelector('#dossier-tab-business .dossier-tab-check');
     if (businessCheck) {
         businessCheck.classList.toggle('hidden', !businessComplete);
     }
@@ -909,7 +912,7 @@ function updateIntakeTabChecks() {
     const addressComplete = addressStreet && addressNumber && addressPostal && addressCity &&
                            /^[0-9]{4}[A-Za-z]{2}$/.test(addressPostal);
 
-    const addressCheck = document.querySelector('#intake-tab-address .intake-tab-check');
+    const addressCheck = document.querySelector('#dossier-tab-address .dossier-tab-check');
     if (addressCheck) {
         addressCheck.classList.toggle('hidden', !addressComplete);
     }
@@ -918,34 +921,38 @@ function updateIntakeTabChecks() {
 // ==================== NOTES FUNCTIONALITY ====================
 
 let notesAutoSaveTimer = null;
+let currentIntake = null;
+let currentNoteId = null; // null = nieuwe notitie, string = bestaande notitie bewerken
 
-// Load notes from storage
-function loadNotes() {
-    const saved = sessionStorage.getItem('intakeNotes');
-    if (saved) {
+// Load notes from Cosmos DB via Function App
+async function loadNotes() {
+    const customer = JSON.parse(sessionStorage.getItem('dossierCustomer') || 'null');
+    const quickNotesEl = document.getElementById('quickNotes');
+
+    currentIntake = null;
+    currentNoteId = null;
+
+    if (customer?.customerNumber) {
         try {
-            const notes = JSON.parse(saved);
-            document.getElementById('quickNotes').value = notes.quick || '';
-            document.getElementById('painPoints').value = notes.painPoints || '';
-            document.getElementById('currentSituation').value = notes.currentSituation || '';
-            document.getElementById('desiredOutcome').value = notes.desiredOutcome || '';
-            updateNotesCharCount();
+            currentIntake = await apiRequest(`/customers/${customer.customerNumber}/intake`);
         } catch (e) {
-            console.error('Error loading notes:', e);
+            if (!e.message?.includes('HTTP 404')) {
+                console.error('Error loading notes:', e);
+            }
         }
     }
 
-    // Setup auto-save
-    const textareas = ['quickNotes', 'painPoints', 'currentSituation', 'desiredOutcome'];
-    textareas.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) {
-            el.addEventListener('input', () => {
-                updateNotesCharCount();
-                autoSaveNotes();
-            });
-        }
-    });
+    if (quickNotesEl) quickNotesEl.value = '';
+    updateNotesCharCount();
+    renderSavedNotesList(currentIntake);
+
+    if (quickNotesEl && !quickNotesEl.dataset.notesListenerAttached) {
+        quickNotesEl.dataset.notesListenerAttached = 'true';
+        quickNotesEl.addEventListener('input', () => {
+            updateNotesCharCount();
+            autoSaveNotes();
+        });
+    }
 }
 
 function updateNotesCharCount() {
@@ -963,41 +970,167 @@ function autoSaveNotes() {
     }, 1000); // Auto-save after 1 second of inactivity
 }
 
-function saveNotes(isAutoSave = false) {
-    const notes = {
-        quick: document.getElementById('quickNotes')?.value || '',
-        painPoints: document.getElementById('painPoints')?.value || '',
-        currentSituation: document.getElementById('currentSituation')?.value || '',
-        desiredOutcome: document.getElementById('desiredOutcome')?.value || '',
-        timestamp: new Date().toISOString()
-    };
-
-    sessionStorage.setItem('intakeNotes', JSON.stringify(notes));
-
-    // Show save indicator
-    const saveIndicator = document.getElementById('notesLastSaved');
-    if (saveIndicator) {
-        const now = new Date();
-        const timeStr = now.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
-        saveIndicator.textContent = `✓ Opgeslagen om ${timeStr}`;
-        saveIndicator.classList.remove('hidden');
+async function saveNotes(isAutoSave = false) {
+    const customer = JSON.parse(sessionStorage.getItem('dossierCustomer') || 'null');
+    if (!customer?.customerNumber) {
+        if (!isAutoSave) showToast('Geen klant geselecteerd', 'error');
+        return;
     }
 
-    if (!isAutoSave) {
-        showToast('Notities opgeslagen!', 'success');
+    const content = document.getElementById('quickNotes')?.value || '';
+    if (!content.trim()) {
+        if (!isAutoSave) showToast('Notitie is leeg', 'info');
+        return;
+    }
+
+    try {
+        if (!currentIntake) currentIntake = { dossierNotes: [] };
+        if (!currentIntake.dossierNotes) currentIntake.dossierNotes = [];
+
+        const now = new Date().toISOString();
+
+        if (currentNoteId) {
+            const note = currentIntake.dossierNotes.find(n => n.id === currentNoteId);
+            if (note) {
+                note.content = content;
+                note.updatedAt = now;
+            }
+        } else {
+            const newNoteItem = { id: generateGuid(), content, createdAt: now, updatedAt: null };
+            currentIntake.dossierNotes.unshift(newNoteItem);
+            currentNoteId = newNoteItem.id;
+        }
+
+        if (currentIntake.id) {
+            currentIntake = await apiRequest(`/customers/${customer.customerNumber}/intake/${currentIntake.id}`, {
+                method: 'PUT',
+                body: JSON.stringify(currentIntake)
+            });
+        } else {
+            currentIntake = await apiRequest(`/customers/${customer.customerNumber}/intake`, {
+                method: 'POST',
+                body: JSON.stringify(currentIntake)
+            });
+            currentNoteId = currentIntake?.dossierNotes?.[0]?.id || null;
+        }
+
+        const saveIndicator = document.getElementById('notesLastSaved');
+        if (saveIndicator) {
+            const timeStr = new Date().toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+            saveIndicator.textContent = `✓ Opgeslagen om ${timeStr}`;
+            saveIndicator.classList.remove('hidden');
+        }
+
+        renderSavedNotesList(currentIntake);
+        if (!isAutoSave) showToast('Notitie opgeslagen!', 'success');
+    } catch (error) {
+        console.error('Error saving notes:', error);
+        if (!isAutoSave) showToast('Fout bij opslaan van notitie', 'error');
     }
 }
 
-function clearNotes() {
-    if (confirm('Weet je zeker dat je alle notities wilt wissen?')) {
-        document.getElementById('quickNotes').value = '';
-        document.getElementById('painPoints').value = '';
-        document.getElementById('currentSituation').value = '';
-        document.getElementById('desiredOutcome').value = '';
-        sessionStorage.removeItem('intakeNotes');
-        updateNotesCharCount();
-        showToast('Notities gewist', 'info');
+async function clearNotes() {
+    if (!confirm('Weet je zeker dat je alle notities wilt wissen?')) return;
+    const quickNotesEl = document.getElementById('quickNotes');
+    if (quickNotesEl) quickNotesEl.value = '';
+    updateNotesCharCount();
+    await saveNotes(true);
+    showToast('Notities gewist', 'info');
+}
+
+function renderSavedNotesList(intake) {
+    const container = document.getElementById('savedNotesList');
+    if (!container) return;
+
+    const notes = intake?.dossierNotes || [];
+    if (notes.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-8 text-gray-400 text-sm">
+                <i class="fas fa-sticky-note text-3xl mb-2 block"></i>
+                <p>Nog geen notities opgeslagen</p>
+            </div>`;
+        return;
     }
+
+    container.innerHTML = notes.map(note => {
+        const timestamp = note.updatedAt || note.createdAt;
+        const date = new Date(timestamp);
+        const dateStr = date.toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' });
+        const timeStr = date.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+        const preview = (note.content || '').substring(0, 80).replace(/\n/g, ' ').trim();
+        const isActive = note.id === currentNoteId;
+        return `
+            <div class="group relative rounded-lg border p-3 mb-2 cursor-pointer transition-all ${isActive ? 'border-blue-400 bg-blue-50' : 'border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50'}"
+                 onclick="loadNoteById('${note.id}')">
+                <div class="flex items-start justify-between gap-2">
+                    <div class="min-w-0 flex-1">
+                        <div class="text-xs text-gray-500 mb-1">${dateStr} om ${timeStr}</div>
+                        <div class="text-xs text-gray-600 line-clamp-2">${preview || '(leeg)'}...</div>
+                    </div>
+                    <button onclick="event.stopPropagation(); deleteNoteById('${note.id}')"
+                            class="opacity-0 group-hover:opacity-100 flex-shrink-0 p-1 text-red-400 hover:text-red-600 transition-all"
+                            title="Verwijderen">
+                        <i class="fas fa-trash text-xs"></i>
+                    </button>
+                </div>
+            </div>`;
+    }).join('');
+}
+
+function loadNoteById(id) {
+    const note = currentIntake?.dossierNotes?.find(n => n.id === id);
+    if (!note) return;
+    currentNoteId = id;
+    const quickNotesEl = document.getElementById('quickNotes');
+    if (quickNotesEl) quickNotesEl.value = note.content || '';
+    updateNotesCharCount();
+    const saveIndicator = document.getElementById('notesLastSaved');
+    if (saveIndicator) saveIndicator.classList.add('hidden');
+    renderSavedNotesList(currentIntake);
+}
+
+async function deleteNoteById(id) {
+    if (!confirm('Weet je zeker dat je deze notitie wilt verwijderen?')) return;
+
+    const customer = JSON.parse(sessionStorage.getItem('dossierCustomer') || 'null');
+    if (!customer?.customerNumber || !currentIntake?.id) return;
+
+    try {
+        currentIntake.dossierNotes = (currentIntake.dossierNotes || []).filter(n => n.id !== id);
+        currentIntake = await apiRequest(`/customers/${customer.customerNumber}/intake/${currentIntake.id}`, {
+            method: 'PUT',
+            body: JSON.stringify(currentIntake)
+        });
+
+        if (currentNoteId === id) {
+            currentNoteId = null;
+            const quickNotesEl = document.getElementById('quickNotes');
+            if (quickNotesEl) quickNotesEl.value = '';
+            updateNotesCharCount();
+            const saveIndicator = document.getElementById('notesLastSaved');
+            if (saveIndicator) saveIndicator.classList.add('hidden');
+        }
+
+        renderSavedNotesList(currentIntake);
+        showToast('Notitie verwijderd', 'info');
+    } catch (error) {
+        console.error('Error deleting note:', error);
+        showToast('Fout bij verwijderen van notitie', 'error');
+    }
+}
+
+function newNote() {
+    const quickNotesEl = document.getElementById('quickNotes');
+    if (quickNotesEl?.value.trim() && !confirm('Weet je zeker dat je een nieuwe notitie wilt beginnen? Niet-opgeslagen wijzigingen gaan verloren.')) {
+        return;
+    }
+    currentNoteId = null;
+    if (quickNotesEl) quickNotesEl.value = '';
+    updateNotesCharCount();
+    const saveIndicator = document.getElementById('notesLastSaved');
+    if (saveIndicator) saveIndicator.classList.add('hidden');
+    renderSavedNotesList(currentIntake);
+    quickNotesEl?.focus();
 }
 
 // ==================== QUOTE FUNCTIONALITY ====================
@@ -1191,16 +1324,16 @@ function saveQuote() {
         discount: parseFloat(document.getElementById('quoteDiscount')?.value || 0),
         timestamp: new Date().toISOString()
     };
-    sessionStorage.setItem('intakeQuote', JSON.stringify(quote));
+    sessionStorage.setItem('dossierQuote', JSON.stringify(quote));
 
     // Also save to Cosmos DB (auto-save)
-    saveIntakeToCosmosDB(true).catch(err => {
+    saveDossierToCosmosDB(true).catch(err => {
         console.error('Failed to auto-save quote to Cosmos DB:', err);
     });
 }
 
 function loadSavedQuote() {
-    const saved = sessionStorage.getItem('intakeQuote');
+    const saved = sessionStorage.getItem('dossierQuote');
     if (saved) {
         try {
             const quote = JSON.parse(saved);
@@ -1222,7 +1355,7 @@ function clearQuote() {
         document.getElementById('quoteDiscount').value = 0;
         renderQuoteItems();
         updateQuoteTotal();
-        sessionStorage.removeItem('intakeQuote');
+        sessionStorage.removeItem('dossierQuote');
         showToast('Offerte gewist', 'info');
     }
 }
@@ -1246,13 +1379,13 @@ function exportQuote() {
             </div>
             <div>
                 <label class="block text-sm font-medium mb-2">Geldig tot</label>
-                <input type="date" id="intakeQuoteValidUntil" value="${defaultValidUntil}"
+                <input type="date" id="dossierQuoteValidUntil" value="${defaultValidUntil}"
                        class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500">
                 <p class="text-xs text-gray-500 mt-1">Standaard: 30 dagen vanaf vandaag</p>
             </div>
             <div>
                 <label class="block text-sm font-medium mb-2">Opmerkingen (optioneel)</label>
-                <textarea id="intakeQuoteNotes" rows="3"
+                <textarea id="dossierQuoteNotes" rows="3"
                           class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
                           placeholder="Extra toelichting op de offerte..."></textarea>
             </div>
@@ -1260,9 +1393,9 @@ function exportQuote() {
     `;
 
     createModal('Offerte als PDF downloaden', formHtml, async () => {
-        const validUntil = document.getElementById('intakeQuoteValidUntil').value;
-        const notes = document.getElementById('intakeQuoteNotes').value.trim();
-        await downloadIntakeQuotePdf(validUntil, notes);
+        const validUntil = document.getElementById('dossierQuoteValidUntil').value;
+        const notes = document.getElementById('dossierQuoteNotes').value.trim();
+        await downloadDossierQuotePdf(validUntil, notes);
     }, 'Offerte downloaden', 'sm');
 }
 
@@ -1273,12 +1406,12 @@ function getDatePlusDays(days, baseDate = null) {
     return date.toISOString().split('T')[0];
 }
 
-// Generate and download PDF quote from intake
-async function downloadIntakeQuotePdf(validUntil, extraNotes) {
+// Generate and download PDF quote from dossier
+async function downloadDossierQuotePdf(validUntil, extraNotes) {
     try {
         showToast('Offerte wordt gegenereerd...', 'info');
 
-        const customer = JSON.parse(sessionStorage.getItem('intakeCustomer') || '{}');
+        const customer = JSON.parse(sessionStorage.getItem('dossierCustomer') || '{}');
         const discount = parseFloat(document.getElementById('quoteDiscount')?.value || 0);
 
         if (!customer.customerNumber) {
@@ -1490,7 +1623,7 @@ async function downloadIntakeQuotePdf(validUntil, extraNotes) {
 let followUpActions = [];
 
 function loadFollowUpActions() {
-    const saved = sessionStorage.getItem('intakeFollowUp');
+    const saved = sessionStorage.getItem('dossierFollowUp');
     if (saved) {
         try {
             followUpActions = JSON.parse(saved);
@@ -1533,7 +1666,7 @@ function saveFollowUpAction() {
     };
 
     followUpActions.push(action);
-    sessionStorage.setItem('intakeFollowUp', JSON.stringify(followUpActions));
+    sessionStorage.setItem('dossierFollowUp', JSON.stringify(followUpActions));
 
     // Clear form
     document.getElementById('actionDescription').value = '';
@@ -1544,7 +1677,7 @@ function saveFollowUpAction() {
     showToast('Follow-up actie toegevoegd!', 'success');
 
     // Auto-save to Cosmos DB
-    saveIntakeToCosmosDB(true).catch(err => {
+    saveDossierToCosmosDB(true).catch(err => {
         console.error('Failed to auto-save follow-up to Cosmos DB:', err);
     });
 }
@@ -1623,12 +1756,12 @@ function renderFollowUpList() {
 function removeFollowUpAction(actionId) {
     if (confirm('Weet je zeker dat je deze actie wilt verwijderen?')) {
         followUpActions = followUpActions.filter(a => a.id !== actionId);
-        sessionStorage.setItem('intakeFollowUp', JSON.stringify(followUpActions));
+        sessionStorage.setItem('dossierFollowUp', JSON.stringify(followUpActions));
         renderFollowUpList();
         showToast('Actie verwijderd', 'info');
 
         // Auto-save to Cosmos DB
-        saveIntakeToCosmosDB(true).catch(err => {
+        saveDossierToCosmosDB(true).catch(err => {
             console.error('Failed to auto-save follow-up removal to Cosmos DB:', err);
         });
     }
@@ -1656,17 +1789,17 @@ function showToast(message, type = 'info') {
     }, 3000);
 }
 
-// ==================== INTAKE DATA MANAGEMENT (COSMOS DB) ====================
+// ==================== DOSSIER DATA MANAGEMENT (COSMOS DB) ====================
 
-// Customer search for "Bestaande Intake Openen"
-let intakeSearchTimeout = null;
+// Customer search for "Bestaande Dossier Openen"
+let dossierSearchTimeout = null;
 
-async function searchIntakeCustomers() {
-    const input = document.getElementById('openIntakeCustomerNumber');
-    const resultsDiv = document.getElementById('intakeSearchResults');
+async function searchDossierCustomers() {
+    const input = document.getElementById('openDossierCustomerNumber');
+    const resultsDiv = document.getElementById('dossierSearchResults');
     const query = input.value.trim().toLowerCase();
 
-    clearTimeout(intakeSearchTimeout);
+    clearTimeout(dossierSearchTimeout);
 
     if (!query) {
         resultsDiv.classList.add('hidden');
@@ -1677,7 +1810,7 @@ async function searchIntakeCustomers() {
     resultsDiv.innerHTML = `<div class="px-4 py-3 text-sm text-gray-400 flex items-center gap-2"><i class="fas fa-spinner fa-spin"></i>Zoeken...</div>`;
     resultsDiv.classList.remove('hidden');
 
-    intakeSearchTimeout = setTimeout(async () => {
+    dossierSearchTimeout = setTimeout(async () => {
         try {
             const config = getAppConfig();
             const basicAuthHeader = btoa(`${config.username}:${config.password}`);
@@ -1705,7 +1838,7 @@ async function searchIntakeCustomers() {
                     const num = c.customerNumber || '';
                     const contact = c.contact?.name ? `<div class="text-xs text-gray-400 mt-0.5">${c.contact.name}</div>` : '';
                     return `<button type="button"
-                        onmousedown="selectIntakeCustomer('${num}')"
+                        onmousedown="selectDossierCustomer('${num}')"
                         class="w-full text-left px-4 py-3 hover:bg-blue-50 border-b border-gray-100 last:border-0 transition-colors">
                         <div class="font-medium text-gray-800">${displayName}</div>
                         <div class="text-xs text-blue-600 font-mono mt-0.5">${num}</div>
@@ -1720,27 +1853,27 @@ async function searchIntakeCustomers() {
     }, 250);
 }
 
-function selectIntakeCustomer(customerNumber) {
-    const input = document.getElementById('openIntakeCustomerNumber');
-    const resultsDiv = document.getElementById('intakeSearchResults');
+function selectDossierCustomer(customerNumber) {
+    const input = document.getElementById('openDossierCustomerNumber');
+    const resultsDiv = document.getElementById('dossierSearchResults');
     input.value = customerNumber;
     resultsDiv.classList.add('hidden');
     resultsDiv.innerHTML = '';
-    openExistingIntake();
+    openExistingDossier();
 }
 
-function handleIntakeSearchKeydown(event) {
+function handleDossierSearchKeydown(event) {
     if (event.key === 'Escape') {
-        document.getElementById('intakeSearchResults').classList.add('hidden');
+        document.getElementById('dossierSearchResults').classList.add('hidden');
     } else if (event.key === 'Enter') {
-        document.getElementById('intakeSearchResults').classList.add('hidden');
-        openExistingIntake();
+        document.getElementById('dossierSearchResults').classList.add('hidden');
+        openExistingDossier();
     }
 }
 
-// Open existing intake by customer number
-async function openExistingIntake() {
-    const customerNumberInput = document.getElementById('openIntakeCustomerNumber');
+// Open existing dossier by customer number
+async function openExistingDossier() {
+    const customerNumberInput = document.getElementById('openDossierCustomerNumber');
     const customerNumber = customerNumberInput.value.trim();
 
     if (!customerNumber) {
@@ -1749,7 +1882,7 @@ async function openExistingIntake() {
     }
 
     try {
-        showToast('Intake ophalen...', 'info');
+        showToast('Dossier ophalen...', 'info');
 
         const config = getAppConfig();
         const basicAuthHeader = btoa(`${config.username}:${config.password}`);
@@ -1775,83 +1908,88 @@ async function openExistingIntake() {
         }
 
         // Store customer in session
-        sessionStorage.setItem('intakeCustomer', JSON.stringify(customer));
+        sessionStorage.setItem('dossierCustomer', JSON.stringify(customer));
         displayCustomer(customer);
 
-        // Now try to get the intake
-        const intakeResponse = await fetch(`${config.apiUrl}/customers/${customerNumber}/intake`, {
+        // Now try to get the dossier
+        const dossierResponse = await fetch(`${config.apiUrl}/customers/${customerNumber}/intake`, {
             method: 'GET',
             headers: {
                 'Authorization': `Basic ${basicAuthHeader}`
             }
         });
 
-        if (intakeResponse.ok) {
-            const intake = await intakeResponse.json();
+        if (dossierResponse.ok) {
+            const dossier = await dossierResponse.json();
 
-            // Load intake data into the form
-            loadIntakeData(intake);
-            showToast('Intake succesvol geopend!', 'success');
-        } else if (intakeResponse.status === 404) {
-            // No intake found, that's okay - we'll create one when saving
-            showToast(`Klant ${customerNumber} geladen. Nog geen intake gevonden, je kunt nu notities maken.`, 'info');
+            // Load dossier data into the form
+            loadDossierData(dossier);
+            showToast('Dossier succesvol geopend!', 'success');            showToast(`Klant ${customerNumber} geladen. Nog geen dossier gevonden — je kunt nu beginnen.`, 'info');
         } else {
-            throw new Error('Fout bij ophalen van intake');
+            throw new Error('Fout bij ophalen van dossier');
         }
 
         // Clear the input
         customerNumberInput.value = '';
 
     } catch (error) {
-        console.error('Error opening intake:', error);
-        showToast('Fout bij openen van intake: ' + error.message, 'error');
+        console.error('Error opening dossier:', error);
+        showToast('Fout bij openen van dossier: ' + error.message, 'error');
     }
 }
 
-// Load intake data into the forms
-function loadIntakeData(intake) {
-    if (!intake) return;
+// Load dossier data into the forms
+function loadDossierData(dossier) {
+    if (!dossier) return;
 
-    // Store intake ID for later updates
-    sessionStorage.setItem('intakeId', intake.id);
+    // Store dossier ID for later updates
+    sessionStorage.setItem('dossierId', dossier.id);
 
     // Load notes if available
-    if (intake.opmerkingen) {
+    if (dossier.opmerkingen) {
         try {
-            const notes = JSON.parse(intake.opmerkingen);
-            if (notes.quick) document.getElementById('quickNotes').value = notes.quick;
-            if (notes.painPoints) document.getElementById('painPoints').value = notes.painPoints;
-            if (notes.currentSituation) document.getElementById('currentSituation').value = notes.currentSituation;
-            if (notes.desiredOutcome) document.getElementById('desiredOutcome').value = notes.desiredOutcome;
+            const notes = JSON.parse(dossier.opmerkingen);
+            const quickNotesEl = document.getElementById('quickNotes');
+            if (quickNotesEl) {
+                let combined = notes.quick || '';
+                const legacyParts = [];
+                if (notes.currentSituation) legacyParts.push(`Huidige Situatie:\n${notes.currentSituation}`);
+                if (notes.painPoints) legacyParts.push(`Pijnpunten:\n${notes.painPoints}`);
+                if (notes.desiredOutcome) legacyParts.push(`Gewenst Resultaat:\n${notes.desiredOutcome}`);
+                if (legacyParts.length > 0) {
+                    combined = (combined ? combined + '\n\n' : '') + legacyParts.join('\n\n');
+                }
+                quickNotesEl.value = combined;
+            }
             updateNotesCharCount();
         } catch (e) {
             // If it's not JSON, just load as plain text in quick notes
-            document.getElementById('quickNotes').value = intake.opmerkingen;
+            document.getElementById('quickNotes').value = dossier.opmerkingen;
         }
     }
 
     // Load quote data if available
-    if (intake.offerteItems) {
+    if (dossier.offerteItems) {
         try {
-            const items = JSON.parse(intake.offerteItems);
+            const items = JSON.parse(dossier.offerteItems);
             if (items && Array.isArray(items)) {
                 quoteItems = items;
 
                 // Restore discount if available
-                if (intake.offerteKorting != null) {
+                if (dossier.offerteKorting != null) {
                     const discountField = document.getElementById('quoteDiscount');
                     if (discountField) {
-                        discountField.value = intake.offerteKorting;
+                        discountField.value = dossier.offerteKorting;
                     }
                 }
 
                 // Save to session storage for consistency
                 const quoteData = {
                     items: items,
-                    discount: intake.offerteKorting || 0,
-                    timestamp: intake.offerteAangemaaktOp || new Date().toISOString()
+                    discount: dossier.offerteKorting || 0,
+                    timestamp: dossier.offerteAangemaaktOp || new Date().toISOString()
                 };
-                sessionStorage.setItem('intakeQuote', JSON.stringify(quoteData));
+                sessionStorage.setItem('dossierQuote', JSON.stringify(quoteData));
 
                 // Render the quote items if we're on the quote view
                 renderQuoteItems();
@@ -1865,14 +2003,14 @@ function loadIntakeData(intake) {
     }
 
     // Load follow-up actions if available
-    if (intake.followUpActies) {
+    if (dossier.followUpActies) {
         try {
-            const actions = JSON.parse(intake.followUpActies);
+            const actions = JSON.parse(dossier.followUpActies);
             if (actions && Array.isArray(actions)) {
                 followUpActions = actions;
 
                 // Save to session storage for consistency
-                sessionStorage.setItem('intakeFollowUp', JSON.stringify(actions));
+                sessionStorage.setItem('dossierFollowUp', JSON.stringify(actions));
 
                 // Render the follow-up list if we're on the follow-up view
                 renderFollowUpList();
@@ -1885,12 +2023,12 @@ function loadIntakeData(intake) {
     }
 }
 
-// Save intake to Cosmos DB
-async function saveIntakeToCosmosDB(isAutoSave = false) {
-    const customer = sessionStorage.getItem('intakeCustomer');
+// Save dossier to Cosmos DB
+async function saveDossierToCosmosDB(isAutoSave = false) {
+    const customer = sessionStorage.getItem('dossierCustomer');
     if (!customer) {
         if (!isAutoSave) {
-            showToast('Geen klant geselecteerd. Maak eerst een klant aan of open een bestaande intake.', 'warning');
+            showToast('Geen klant geselecteerd. Maak eerst een klant aan of open een bestaande dossier.', 'warning');
         }
         return;
     }
@@ -1898,16 +2036,16 @@ async function saveIntakeToCosmosDB(isAutoSave = false) {
     const customerData = JSON.parse(customer);
     const customerNumber = customerData.customerNumber;
 
-    // Gather all intake data
+    // Gather all dossier data
     const notes = {
         quick: document.getElementById('quickNotes')?.value || '',
-        painPoints: document.getElementById('painPoints')?.value || '',
-        currentSituation: document.getElementById('currentSituation')?.value || '',
-        desiredOutcome: document.getElementById('desiredOutcome')?.value || ''
+        painPoints: '',
+        currentSituation: '',
+        desiredOutcome: ''
     };
 
     // Get quote data
-    const quoteData = sessionStorage.getItem('intakeQuote');
+    const quoteData = sessionStorage.getItem('dossierQuote');
     let offerteItems = null;
     let offerteKorting = null;
     let offerteSubtotaal = null;
@@ -1938,7 +2076,7 @@ async function saveIntakeToCosmosDB(isAutoSave = false) {
     }
 
     // Get follow-up data
-    const followUpData = sessionStorage.getItem('intakeFollowUp');
+    const followUpData = sessionStorage.getItem('dossierFollowUp');
     let followUpActies = null;
 
     if (followUpData) {
@@ -1952,7 +2090,7 @@ async function saveIntakeToCosmosDB(isAutoSave = false) {
         }
     }
 
-    const intakeData = {
+    const dossierData = {
         aantalWerkplekken: 0,
         besturingssysteemVoorkeur: '',
         huidigeAntivirusoplossing: '',
@@ -1980,42 +2118,42 @@ async function saveIntakeToCosmosDB(isAutoSave = false) {
         const config = getAppConfig();
         const basicAuthHeader = btoa(`${config.username}:${config.password}`);
 
-        // Check if intake already exists
-        const existingIntakeId = sessionStorage.getItem('intakeId');
+        // Check if dossier already exists
+        const existingDossierId = sessionStorage.getItem('dossierId');
 
         let response;
-        if (existingIntakeId) {
-            // Update existing intake
-            response = await fetch(`${config.apiUrl}/customers/${customerNumber}/intake/${existingIntakeId}`, {
+        if (existingDossierId) {
+            // Update existing dossier
+            response = await fetch(`${config.apiUrl}/customers/${customerNumber}/intake/${existingDossierId}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Basic ${basicAuthHeader}`
                 },
-                body: JSON.stringify(intakeData)
+                body: JSON.stringify(dossierData)
             });
 
-            // If the intake no longer exists on the server, create a new one
+            // If the dossier no longer exists on the server, create a new one
             if (response.status === 404) {
-                sessionStorage.removeItem('intakeId');
+                sessionStorage.removeItem('dossierId');
                 response = await fetch(`${config.apiUrl}/customers/${customerNumber}/intake`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Basic ${basicAuthHeader}`
                     },
-                    body: JSON.stringify(intakeData)
+                    body: JSON.stringify(dossierData)
                 });
             }
         } else {
-            // Create new intake
+            // Create new dossier
             response = await fetch(`${config.apiUrl}/customers/${customerNumber}/intake`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Basic ${basicAuthHeader}`
                 },
-                body: JSON.stringify(intakeData)
+                body: JSON.stringify(dossierData)
             });
         }
 
@@ -2024,21 +2162,21 @@ async function saveIntakeToCosmosDB(isAutoSave = false) {
             throw new Error(`HTTP ${response.status}: ${errorText}`);
         }
 
-        const savedIntake = await response.json();
+        const savedDossier = await response.json();
 
-        // Store the intake ID for future updates
-        sessionStorage.setItem('intakeId', savedIntake.id);
+        // Store the dossier ID for future updates
+        sessionStorage.setItem('dossierId', savedDossier.id);
 
         if (!isAutoSave) {
-            showToast('Intake opgeslagen in Cosmos DB!', 'success');
+            showToast('Dossier opgeslagen!', 'success');
         }
 
-        return savedIntake;
+        return savedDossier;
 
     } catch (error) {
-        console.error('Error saving intake to Cosmos DB:', error);
+        console.error('Error saving dossier to Cosmos DB:', error);
         if (!isAutoSave) {
-            showToast('Fout bij opslaan van intake: ' + error.message, 'error');
+            showToast('Fout bij opslaan van dossier: ' + error.message, 'error');
         }
         throw error;
     }
@@ -2052,15 +2190,15 @@ saveNotes = async function(isAutoSave = false) {
 
     // Also save to Cosmos DB
     try {
-        await saveIntakeToCosmosDB(isAutoSave);
+        await saveDossierToCosmosDB(isAutoSave);
     } catch (error) {
-        // Error already logged and shown to user in saveIntakeToCosmosDB
+        // Error already logged and shown to user in saveDossierToCosmosDB
     }
 };
 
-// Load intake for the current customer
-async function loadIntakeForCurrentCustomer() {
-    const customer = sessionStorage.getItem('intakeCustomer');
+// Load dossier for the current customer
+async function loadDossierForCurrentCustomer() {
+    const customer = sessionStorage.getItem('dossierCustomer');
     if (!customer) {
         showToast('Geen klant geselecteerd', 'warning');
         return;
@@ -2074,82 +2212,82 @@ async function loadIntakeForCurrentCustomer() {
         return;
     }
 
-    // Use the existing openExistingIntake logic
+    // Use the existing openExistingDossier logic
     try {
-        showToast('Intake ophalen...', 'info');
+        showToast('Dossier ophalen...', 'info');
 
         const config = getAppConfig();
         const basicAuthHeader = btoa(`${config.username}:${config.password}`);
 
-        const intakeResponse = await fetch(`${config.apiUrl}/customers/${customerNumber}/intake`, {
+        const dossierResponse = await fetch(`${config.apiUrl}/customers/${customerNumber}/intake`, {
             method: 'GET',
             headers: {
                 'Authorization': `Basic ${basicAuthHeader}`
             }
         });
 
-        if (intakeResponse.ok) {
-            const intake = await intakeResponse.json();
+        if (dossierResponse.ok) {
+            const dossier = await dossierResponse.json();
 
-            // Load intake data into the form
-            loadIntakeData(intake);
-            showToast('Intake succesvol geopend!', 'success');
+            // Load dossier data into the form
+            loadDossierData(dossier);
+            showToast('Dossier succesvol geopend!', 'success');
 
             // Switch to notes view to show the loaded data
-            switchIntakeView('notes');
-        } else if (intakeResponse.status === 404) {
-            showToast(`Nog geen intake gevonden voor ${customerNumber}. Je kunt nu notities maken.`, 'info');
-            switchIntakeView('notes');
+            switchDossierView('notes');
+        } else if (dossierResponse.status === 404) {
+            showToast(`Nog geen dossier gevonden voor ${customerNumber} — je kunt nu beginnen.`, 'info');
+            switchDossierView('notes');
         } else {
-            throw new Error('Fout bij ophalen van intake');
+            throw new Error('Fout bij ophalen van dossier');
         }
 
     } catch (error) {
-        console.error('Error loading intake:', error);
-        showToast('Fout bij ophalen van intake: ' + error.message, 'error');
+        console.error('Error loading dossier:', error);
+        showToast('Fout bij ophalen van dossier: ' + error.message, 'error');
     }
 }
 
-// ==================== INTAKE COMPLETION ====================
+// ==================== DOSSIER COMPLETION ====================
 
-// Complete intake and mark as "afgerond"
-async function completeIntake() {
-    const customer = sessionStorage.getItem('intakeCustomer');
+// Complete dossier and mark as "afgerond"
+async function completeDossier() {
+    const customer = sessionStorage.getItem('dossierCustomer');
     if (!customer) {
         showToast('Geen klant geselecteerd', 'warning');
         return;
     }
 
     const customerData = JSON.parse(customer);
-    const intakeId = sessionStorage.getItem('intakeId');
+    const dossierId = sessionStorage.getItem('dossierId');
 
-    if (!intakeId) {
-        alert('⚠️ Deze intake moet eerst worden opgeslagen voordat je deze kunt afronden.\n\nKlik op "Opslaan" in de Notities sectie om de intake op te slaan.');
+    if (!dossierId) {
+        alert('⚠️ Dit dossier moet eerst worden opgeslagen voordat je het kunt afronden.\n\nKlik op "Opslaan" in de Notities sectie om het dossier op te slaan.');
         return;
     }
 
     // Check if we have minimum required data
-    const hasNotes = sessionStorage.getItem('intakeNotes');
-    const hasQuote = sessionStorage.getItem('intakeQuote');
+    const hasNotes = sessionStorage.getItem('dossierNotes');
+    const hasQuote = sessionStorage.getItem('dossierQuote');
 
     if (!hasNotes && !hasQuote) {
-        alert('⚠️ Vul minimaal notities of een offerte in voordat je de intake afrondt.');
+        alert('⚠️ Vul minimaal notities of een offerte in voordat je het dossier afrondt.');
         return;
     }
 
-    if (!confirm('🎯 Weet je zeker dat je deze intake wilt afronden?\n\n✅ Alle gegevens worden opgeslagen:\n• Notities\n• Offerte items\n• Follow-up acties\n\nDe status wordt gewijzigd naar "afgerond".')) {
+    if (!confirm('🗂️ Weet je zeker dat je dit dossier wilt afronden?\n\n✅ Alle gegevens worden opgeslagen:\n• Notities\n• Offerte items\n• Follow-up acties\n\nDe status wordt gewijzigd naar "afgerond".')) {
         return;
     }
 
     try {
-        showToast('Intake afronden...', 'info');
+        showToast('Dossier afronden...', 'info');
 
         // Save all data with status "afgerond"
         const customerNumber = customerData.customerNumber;
-        const notes = JSON.parse(sessionStorage.getItem('intakeNotes') || '{}');
+        const notes = JSON.parse(sessionStorage.getItem('dossierNotes') || '{}');
 
         // Get quote data
-        const quoteData = sessionStorage.getItem('intakeQuote');
+        const quoteData = sessionStorage.getItem('dossierQuote');
         let offerteItems = null;
         let offerteKorting = null;
         let offerteSubtotaal = null;
@@ -2176,7 +2314,7 @@ async function completeIntake() {
         }
 
         // Get follow-up data
-        const followUpData = sessionStorage.getItem('intakeFollowUp');
+        const followUpData = sessionStorage.getItem('dossierFollowUp');
         let followUpActies = null;
 
         if (followUpData) {
@@ -2186,7 +2324,7 @@ async function completeIntake() {
             }
         }
 
-        const intakeData = {
+        const dossierData = {
             aantalWerkplekken: 0,
             besturingssysteemVoorkeur: '',
             huidigeAntivirusoplossing: '',
@@ -2213,14 +2351,14 @@ async function completeIntake() {
         const config = getAppConfig();
         const basicAuthHeader = btoa(`${config.username}:${config.password}`);
 
-        // Update intake with "afgerond" status
-        const response = await fetch(`${config.apiUrl}/customers/${customerNumber}/intake/${intakeId}`, {
+        // Update dossier with "afgerond" status
+        const response = await fetch(`${config.apiUrl}/customers/${customerNumber}/intake/${dossierId}`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Basic ${basicAuthHeader}`
             },
-            body: JSON.stringify(intakeData)
+            body: JSON.stringify(dossierData)
         });
 
         if (!response.ok) {
@@ -2229,19 +2367,19 @@ async function completeIntake() {
         }
 
         // Success!
-        showToast('🎉 Intake succesvol afgerond!', 'success');
+        showToast('🎉 Dossier succesvol afgerond!', 'success');
 
         // Show summary modal
-        showIntakeCompletionSummary(customerData, offerteSubtotaal, offerteTotaal, followUpActies);
+        showDossierCompletionSummary(customerData, offerteSubtotaal, offerteTotaal, followUpActies);
 
     } catch (error) {
-        console.error('Error completing intake:', error);
-        showToast('❌ Fout bij afronden van intake: ' + error.message, 'error');
+        console.error('Error completing dossier:', error);
+        showToast('❌ Fout bij afronden van dossier: ' + error.message, 'error');
     }
 }
 
 // Show completion summary
-function showIntakeCompletionSummary(customer, subtotal, total, followUpJson) {
+function showDossierCompletionSummary(customer, subtotal, total, followUpJson) {
     const followUpCount = followUpJson ? JSON.parse(followUpJson).length : 0;
 
     const summaryHtml = `
@@ -2252,7 +2390,7 @@ function showIntakeCompletionSummary(customer, subtotal, total, followUpJson) {
                         <i class="fas fa-check text-white text-2xl"></i>
                     </div>
                     <div>
-                        <h3 class="text-lg font-bold text-green-800">Intake Afgerond!</h3>
+                        <h3 class="text-lg font-bold text-green-800">Dossier Afgerond!</h3>
                         <p class="text-sm text-green-600">Alle gegevens zijn succesvol opgeslagen</p>
                     </div>
                 </div>
@@ -2294,25 +2432,25 @@ function showIntakeCompletionSummary(customer, subtotal, total, followUpJson) {
             <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
                 <p class="text-sm text-blue-800">
                     <i class="fas fa-info-circle mr-2"></i>
-                    Je kunt deze intake later weer openen om wijzigingen aan te brengen.
+                    Je kunt deze dossier later weer openen om wijzigingen aan te brengen.
                 </p>
             </div>
         </div>
     `;
 
     createModal(
-        'Intake Afgerond',
+        'Dossier Afgerond',
         summaryHtml,
         () => {
             // Clear session and return to customer list
-            sessionStorage.removeItem('intakeCustomer');
-            sessionStorage.removeItem('intakeId');
-            sessionStorage.removeItem('intakeNotes');
-            sessionStorage.removeItem('intakeQuote');
-            sessionStorage.removeItem('intakeFollowUp');
+            sessionStorage.removeItem('dossierCustomer');
+            sessionStorage.removeItem('dossierId');
+            sessionStorage.removeItem('dossierNotes');
+            sessionStorage.removeItem('dossierQuote');
+            sessionStorage.removeItem('dossierFollowUp');
 
             // Redirect to customers view
-            switchIntakeView('customers');
+            switchDossierView('customers');
             location.reload(); // Refresh to reset everything
         },
         'Afsluiten',
@@ -2323,11 +2461,11 @@ function showIntakeCompletionSummary(customer, subtotal, total, followUpJson) {
 // ==================== KVK LOOKUP FUNCTIONALITY ====================
 
 // KvK API lookup function
-async function intakeLookupKvK() {
+async function dossierLookupKvK() {
     const kvkInput = document.getElementById('businessKvk');
     const kvkNumber = kvkInput?.value.trim();
-    const statusDiv = document.getElementById('intakeKvkStatus');
-    const lookupBtn = document.getElementById('intakeKvkLookupBtn');
+    const statusDiv = document.getElementById('dossierKvkStatus');
+    const lookupBtn = document.getElementById('dossierKvkLookupBtn');
 
     if (!kvkNumber) {
         if (statusDiv) {
@@ -2377,7 +2515,7 @@ async function intakeLookupKvK() {
             const businessNameField = document.getElementById('businessName');
             if (businessNameField && !businessNameField.value) {
                 businessNameField.value = data.naam;
-                validateIntakeField(businessNameField);
+                validateDossierField(businessNameField);
             }
 
             // Fill in address if available
@@ -2388,7 +2526,7 @@ async function intakeLookupKvK() {
                     const streetField = document.getElementById('addressStreet');
                     if (streetField && !streetField.value) {
                         streetField.value = address.straatnaam;
-                        validateIntakeField(streetField);
+                        validateDossierField(streetField);
                     }
                 }
 
@@ -2396,7 +2534,7 @@ async function intakeLookupKvK() {
                     const numberField = document.getElementById('addressNumber');
                     if (numberField && !numberField.value) {
                         numberField.value = address.huisnummer + (address.huisnummerToevoeging || '');
-                        validateIntakeField(numberField);
+                        validateDossierField(numberField);
                     }
                 }
 
@@ -2404,7 +2542,7 @@ async function intakeLookupKvK() {
                     const postalField = document.getElementById('addressPostal');
                     if (postalField && !postalField.value) {
                         postalField.value = address.postcode.replace(/\s/g, '');
-                        validateIntakeField(postalField);
+                        validateDossierField(postalField);
                     }
                 }
 
@@ -2412,7 +2550,7 @@ async function intakeLookupKvK() {
                     const cityField = document.getElementById('addressCity');
                     if (cityField && !cityField.value) {
                         cityField.value = address.plaats;
-                        validateIntakeField(cityField);
+                        validateDossierField(cityField);
                     }
                 }
             }
@@ -2424,7 +2562,7 @@ async function intakeLookupKvK() {
             showToast('✅ KvK gegevens succesvol ingevuld!', 'success');
 
             // Update tab checks
-            updateIntakeTabChecks();
+            updateDossierTabChecks();
         } else {
             throw new Error('Geen geldige gegevens ontvangen van KvK API');
         }
@@ -2463,7 +2601,7 @@ async function intakeLookupKvK() {
             const businessNameField = document.getElementById('businessName');
             if (businessNameField && !businessNameField.value) {
                 businessNameField.value = mockCompany.naam;
-                validateIntakeField(businessNameField);
+                validateDossierField(businessNameField);
             }
 
             // Fill in address
@@ -2471,25 +2609,25 @@ async function intakeLookupKvK() {
                 const streetField = document.getElementById('addressStreet');
                 if (streetField && !streetField.value) {
                     streetField.value = mockCompany.address.straatnaam;
-                    validateIntakeField(streetField);
+                    validateDossierField(streetField);
                 }
 
                 const numberField = document.getElementById('addressNumber');
                 if (numberField && !numberField.value) {
                     numberField.value = mockCompany.address.huisnummer;
-                    validateIntakeField(numberField);
+                    validateDossierField(numberField);
                 }
 
                 const postalField = document.getElementById('addressPostal');
                 if (postalField && !postalField.value) {
                     postalField.value = mockCompany.address.postcode;
-                    validateIntakeField(postalField);
+                    validateDossierField(postalField);
                 }
 
                 const cityField = document.getElementById('addressCity');
                 if (cityField && !cityField.value) {
                     cityField.value = mockCompany.address.plaats;
-                    validateIntakeField(cityField);
+                    validateDossierField(cityField);
                 }
             }
 
@@ -2499,7 +2637,7 @@ async function intakeLookupKvK() {
             showToast('✅ KvK gegevens succesvol ingevuld! (demo)', 'success');
 
             // Update tab checks
-            updateIntakeTabChecks();
+            updateDossierTabChecks();
         } else {
             if (statusDiv) {
                 statusDiv.innerHTML = `<span class="text-red-600"><i class="fas fa-exclamation-circle mr-1"></i>${error.message}</span>`;
@@ -2649,7 +2787,7 @@ function displayMaintenancePlans(plans) {
 }
 
 function selectMaintenancePlan(planId, planName) {
-    // Show confirmation and note in the intake
+    // Show confirmation and note in the dossier
     const message = `Onderhoudsplan "${planName}" geselecteerd voor bespreking met de klant.`;
 
     // Add to notes if customer is selected
@@ -2664,14 +2802,14 @@ function selectMaintenancePlan(planId, planName) {
             updateNotesCharCount();
 
             // Switch to notes tab to show the addition
-            switchIntakeView('notes');
+            switchDossierView('notes');
 
             // Show success message
             showToast('success', `Onderhoudsplan "${planName}" toegevoegd aan notities`);
         }
     } else {
         // No customer selected, just show info
-        showToast('info', `Onderhoudsplan "${planName}" geselecteerd. Maak eerst een klant aan om dit toe te voegen aan de intake.`);
+        showToast('info', `Onderhoudsplan "${planName}" geselecteerd. Maak eerst een klant aan om dit toe te voegen aan de dossier.`);
     }
 }
 
